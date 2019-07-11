@@ -1,0 +1,30 @@
+---
+title: "Seedlings"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+source('~/OneDrive - University of Bergen/Research/FunCaB/SeedclimComm/inst/paper4/dataCleaning.R')
+```
+## R Markdown
+
+These are the figures so far for the seedling manuscript. Comments welcome.
+
+```{r}
+seedTotPlot %>% 
+  ggplot(aes(x = tempLevel, y = perChange, colour = Treatment)) +
+  stat_summary(fun.data = "mean_cl_boot", na.rm = TRUE, position = position_dodge(width = 0.2), size = 1) +
+  geom_boxplot()
+scale_shape_manual(values = c(21,24)) +
+  scale_colour_manual(values = c("grey40", "darkgoldenrod3"))
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
