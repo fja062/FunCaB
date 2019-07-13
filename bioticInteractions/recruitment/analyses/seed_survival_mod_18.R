@@ -4,7 +4,7 @@ load(file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/so
 
 # load libraries and scripts
 library(tidybayes)
-source("~/Documents/SeedclimComm/inst/graminoidRemovals/plotting_dim.R")
+source("~/Documents/FunCaB/figures/plotting_dim.R")
 
 ## add temperature anomaly data!
 datSurv <- survival %>% 
@@ -85,14 +85,14 @@ n.treat <- nlevels(factor(datSurv$Treatment))
 n.site <- nlevels(factor(datSurv$siteID))
 
 DataSurv <- list(numSurvived = datSurv$totS, 
-             n.dat = nrow(datSurv),
-             n.datY = nrow(matSurv.tY),
-             matX = matSurv.t,
-             matY = matSurv.tY,
-             N = datSurv$tot,
-             nEff = ncol(matSurv.t),
-             siteID = as.numeric(factor(datSurv$siteID)), 
-             n.site = n.site)
+              n.dat = nrow(datSurv),
+              n.datY = nrow(matSurv.tY),
+              matX = matSurv.t,
+              matY = matSurv.tY,
+              N = datSurv$tot,
+              nEff = ncol(matSurv.t),
+              siteID = as.numeric(factor(datSurv$siteID)), 
+              n.site = n.site)
 
 # check levels
 levels(factor(datSurv$Treatment))
@@ -102,7 +102,7 @@ para.names.su <- c("beta", "beta.intercept", "beta.site", "survPrec", "meanSurvP
 # Compile the model and run the MCMC for an adaptation (burn-in) phase
 survModt <- jags.parallel(model.file = "funcabSurvival.txt",
   data = DataSurv,
-  n.chains = 3,
+  n.chains = 5,
   n.iter = 20000,
   parameters.to.save = para.names.su,
   jags.module = "mix"
