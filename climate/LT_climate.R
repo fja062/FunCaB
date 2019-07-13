@@ -1,4 +1,5 @@
-source("~/Documents/SeedClim-Climate-Data/funcab/dictionaries.R")
+source("~/Documents/FunCaB/dictionaries.R")
+
 load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/climate.Rdata")
 load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/soilMoisture2018.RData")
 

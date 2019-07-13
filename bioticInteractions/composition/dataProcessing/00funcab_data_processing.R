@@ -13,7 +13,7 @@ library(RSQLite)
 con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seedclim.sqlite", create = FALSE)
 #con <- src_mysql(group = "seedclim", dbname = "seedclimComm", password = "password")
 
-source("~/Documents/SeedClim-Climate-Data/funcab/dictionaries.R")
+source("~/Documents/FunCaB/dictionaries.R")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## ---- database.controls.import ---- 
@@ -365,4 +365,4 @@ comp2 <- comp2 %>%
 
 
 # add climate info
-source("~/Documents/SeedclimComm/inst/graminoidRemovals/weather.R")
+source("~/Documents/FunCaB/climate/weather.R")

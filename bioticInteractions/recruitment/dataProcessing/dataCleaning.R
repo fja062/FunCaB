@@ -15,18 +15,15 @@ library(lubridate)
 
 #
 # source vegetation data, plotting code and soil temperature data
-source("~/Documents/SeedClim-Climate-Data/funcab/vegetation/00funcab_data_processing.R")
+source("~/Documents/FunCaB/bioticInteractions/composition/dataProcessing/00funcab_data_processing.R")
 
-source("~/Documents/SeedclimComm/inst/graminoidRemovals/plotting_dim.R")
+source("~/Documents/FunCaB/figures/plotting_dim.R")
 
-source("~/Documents/SeedClim-Climate-Data/funcab/dictionaries.R")
-
-source("~/Documents/SeedclimComm/inst/graminoidRemovals/weather.R")
-
-source("~/Documents/SeedClim-Climate-Data/funcab/climate/LT_climate.R")
+source("~/Documents/FunCaB/climate/LT_climate.R")
 
 #load seedling data
 seed <- read_csv2("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_recruitment/2018_funcab_seedlings.csv")
+
 
 # load seed mass trait data
 con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seedclim.sqlite", create = FALSE)
@@ -224,8 +221,8 @@ rc_rtcSumAv <- rc_rtcSum %>%
   bind_rows(seedTot %>% filter(Treatment %in% c("Intact", "Gap"))) %>% 
   left_join(monthAv) %>% 
   left_join(weather) %>% 
-  mutate(sprecip7010 = scale((precip7010 / 1000), scale = FALSE, center = TRUE),
-         stemp7010 = scale(temp7010, scale = FALSE, center = TRUE),
+  mutate(sprecip7010 = as.vector(scale((precip7010 / 1000), scale = FALSE, center = TRUE)),
+         stemp7010 = as.vector(scale(temp7010, scale = FALSE, center = TRUE)),
          Treatment = factor(Treatment, levels = c("Intact", "Gap")),
          tempLevelPlot = factor(tempLevel, labels = c("6.5" = "Alpine", "8.5" = "Sub-alpine", "10.5" = "Boreal")),
          precipLevelPlot = factor(precipLevel, labels = c("600" = "Dry", "1200" = "Semi-dry", "2000" = "Semi-wet", "2700" = "Wet"))

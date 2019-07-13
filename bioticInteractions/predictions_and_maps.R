@@ -1,7 +1,8 @@
 library(readxl)
 library(cowplot)
 library(wesanderson)
-source('~/Documents/seedclimComm/seedclimComm/inst/graminoidRemovals/plotting_dim.R')
+library(tidyverse)
+source('~/Documents/FunCaB/figures/plotting_dim.R')
 
 preds <- read_excel("~/Documents/seedclimComm/seedclimComm/inst/graminoidRemovals/predictions.xlsx", sheet = 1)
 preds2 <- read_excel("~/Documents/seedclimComm/seedclimComm/inst/graminoidRemovals/predictions.xlsx", sheet = 2)
@@ -55,9 +56,9 @@ plot3 <- ggplot(preds2, aes(x = time, y = val, colour = group, linetype = group)
 
 ### SITE COORDINATES
 siteCoord <- tbl(con, "sites") %>% 
-  select(siteID, latitude, longitude, Temperature_level, Precipitation_level) %>% 
+  dplyr::select(siteID, latitude, longitude, temperature_level, precipitation_level) %>% 
   collect() %>% 
-  rename(siteID = siteID, lat = latitude, lon = longitude, temp = Temperature_level, precip = Precipitation_level) %>% 
+  rename(siteID = siteID, lat = latitude, lon = longitude, temp = temperature_level, precip = precipitation_level) %>% 
   mutate(temp = recode(temp, "1" = "boreal", "2" = "sub-alpine", "3" = "alpine"))
 
 library("raster")
