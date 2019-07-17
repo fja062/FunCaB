@@ -81,8 +81,14 @@ seedTot <- seed %>%
 
 seedTot <- seedTot %>% 
   #left_join(seedcomp, by = c("siteID", "turfID", "blockID", "Treatment")) %>% 
-  mutate(Treatment = recode(Treatment, "C" = "aC"),
-         Treatment = factor(Treatment, labels = c(aC = "Intact", GB = "F", G = "FB", B = "GF", FGB = "Gap"))) %>%
+  mutate(Treatment = case_when(
+    Treatment == "FGB" ~ "Gap",
+    Treatment == "C" ~ "Intact",
+    Treatment == "B" ~ "GF",
+    Treatment == "GB" ~ "F",
+    Treatment == "G" ~ "FB",
+    TRUE ~ Treatment
+  )) %>%
   #spread(Round, seedSum) %>% 
   #mutate(perChange = ((`2`/sum(`1`, `2`, na.rm = TRUE)) - (`1`/sum(`1`, `2`, na.rm = TRUE)))*100,
   #       ) %>% 
@@ -218,12 +224,11 @@ rc_rtcSum <- rc_rtcSum %>%
 
 
 rc_rtcSumAv <- rc_rtcSum %>%
-  bind_rows(seedTot %>% filter(Treatment %in% c("Intact", "Gap"))) %>% 
+  bind_rows(seedTot) %>% 
   left_join(monthAv) %>% 
   left_join(weather) %>% 
   mutate(sprecip7010 = as.vector(scale((precip7010 / 1000), scale = FALSE, center = TRUE)),
          stemp7010 = as.vector(scale(temp7010, scale = FALSE, center = TRUE)),
-         Treatment = factor(Treatment, levels = c("Intact", "Gap")),
          tempLevelPlot = factor(tempLevel, labels = c("6.5" = "Alpine", "8.5" = "Sub-alpine", "10.5" = "Boreal")),
          precipLevelPlot = factor(precipLevel, labels = c("600" = "Dry", "1200" = "Semi-dry", "2000" = "Semi-wet", "2700" = "Wet"))
          )

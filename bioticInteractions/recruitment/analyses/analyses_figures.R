@@ -286,7 +286,7 @@ summary(lm2)
 rc_rtcSumAv %>% 
   mutate(monthN = recode(monthN, aut = "Late", spr = "Early")) %>% 
   filter(tAnom > -4) %>% 
-  ggplot(aes(x = tAnom, y = seed, linetype = Treatment, shape = Treatment,colour = precipLevel)) +
+  ggplot(aes(x = tAnom, y = seed, linetype = Treatment, shape = Treatment,colour = precipLevelPlot)) +
   geom_vline(xintercept = 0, colour = "lightgrey") +
   geom_point(position = position_jitterdodge(dodge.width = 0.1), size = 3, stroke = 1, alpha = 0.8) +
   geom_smooth(method = "lm", se = FALSE) +
@@ -304,7 +304,7 @@ ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/fig
 
 rc_rtcSumAv %>% 
   mutate(monthN = recode(monthN, aut = "Late", spr = "Early")) %>% 
-  ggplot(aes(x = pAnom, y = seed, linetype = Treatment, shape = Treatment, colour = precipLevel)) +
+  ggplot(aes(x = pAnom, y = seed, linetype = Treatment, shape = Treatment, colour = precipLevelPlot)) +
   geom_vline(xintercept = 0, colour = "lightgrey") +
   geom_point(position = position_jitterdodge(dodge.width = 0.1), size = 3, stroke = 1, alpha = 0.8) +
   geom_smooth(method = "lm", se = FALSE) +

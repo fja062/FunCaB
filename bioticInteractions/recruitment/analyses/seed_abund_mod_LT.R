@@ -13,8 +13,10 @@ load(file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cl
 ##### Temperature model #####
 
 # filter away one data point << === must change this
-abdat <- rc_rtcSumAv %>% 
+abdat <- rc_rtcSumAv  %>% 
+  filter(Treatment %in% c("Intact", "Gap")) %>%
   mutate(stempLevel = as.vector(scale(tempLevel, scale = FALSE, center =TRUE)),
+         Treatment = factor(Treatment, levels = c("Intact", "Gap")),
          precipDiv = precipLevel/1000,
          sprecipLevel = as.vector(scale(precipDiv, scale = FALSE, center = TRUE))) %>%
   filter(!is.na(pAnom),
@@ -48,7 +50,8 @@ cat("model {
   # Likelihood
   for (i in 1:n.dat) {
     y[i] ~ dnegbin(p[i], r)
-    p[i] <- mu[i] / (r + mu[i])
+    p[i] <- mu[i] / (r + lambda[i])
+    #lambda[i] <- exp(mu[i])
     log(mu[i]) <- beta.intercept + inprod(beta, matX[i, ]) + beta.site[siteID[i]]
     
     # predictions for model validation, using original data
@@ -65,11 +68,12 @@ for (k in 1:n.datY){
     }
 
   # Priors
+  r ~ dgamma(0.001, 0.001)            # prior for the precision of the survival probability
+  beta.intercept ~ dnorm(0, 0.001)    # intercept prior
+
   for (b in 1:nEff) {
-    beta[b] ~ dnorm(0, 0.001)
+    beta[b] ~ dnorm(0, 0.001)         # priors for the betas
   }
-  beta.intercept ~ dnorm(0, 0.001)
-  r ~ dgamma(0.001, 0.001)
   
   # priors random effects
   randTau ~ dgamma(0.001, 0.001)
@@ -79,8 +83,11 @@ for (k in 1:n.datY){
 
 
 }
-", fill = TRUE, file = "~/seedAbund_tAnom.txt")
+", fill = TRUE, file = "~/Documents/FunCaB/analyses/seedAbund_tAnom.txt")
 
+
+# specify the parameters to watch
+paraNames.ab <- c("beta.intercept", "beta", "beta.site", "r", "pPred", "yPred", "muPred", "mu")
 
 # iii) Set up a list that contains all the necessary data
 n.treat <- nlevels(factor(rc_rtcSumAv$Treatment))
@@ -96,7 +103,6 @@ abDat <- list(y = abdat$seed,
             n.site = nlevels(factor(abdat$siteID)))
 
 
-paraNames.ab <- c("beta.intercept", "beta", "beta.site", "r", "pPred", "yPred", "muPred", "mu")
 
 
 
@@ -106,7 +112,7 @@ AbundtAnom.mod <- jags(
   model.file = "~/seedAbund_tAnom.txt",
   data = abDat,
   n.iter = 20000,
-  n.chains = 5,
+  n.chains = 4,
   parameters.to.save = paraNames.ab,
   progress.bar = "text"
 )
@@ -143,27 +149,49 @@ plot(AbundtAnom.mod)                        # I think this looks alright...
 testTemporalAutocorrelation(sim.abT)
 testSpatialAutocorrelation(sim.abT)
 library(magrittr)
-traceplot(AbundtAnom.mod, match.head = TRUE, varname = "beta")
+traceplot(AbundtAnom.mod, match.head = TRUE, varname = "beta", mfrow = c(4,4))
 AbundtAnom.mod$BUGSoutput$sims.list$beta.intercept %>% as_data_frame() %>% as_tibble() %$% acf(V1)
 
 
 source(file = "~/Documents/FunCaB/figures/plotting_dim.R")
 
 # coefficients plot
-AbundtAnom.mod$BUGSoutput$summary %>% 
+modCoefPlot <- AbundtAnom.mod$BUGSoutput$summary %>% 
   as.data.frame() %>% 
   as_tibble(rownames = "term") %>% 
   filter(grepl("beta\\[", term)) %>% 
   full_join(rNames.t, by = c(term = "i")) %>% 
   mutate(term = if_else(!is.na(term.y), term.y, term)) %>% 
   select(-term.y) %>% 
-  ggplot(aes(x = mean, y = term)) +
-  geom_vline(xintercept = 0, colour = "grey50", size = 0.4) +
-  geom_pointintervalh(aes(xmin = `2.5%`, xmax = `97.5%`, size = 1)) +
-  xlab("Effect size") +
-  theme(axis.title.y = element_blank())
+  mutate(term = case_when(
+    term == "stempLevel" ~ "t",
+    term == "sprecipLevel" ~ "P",
+    term == "TreatmentGap" ~ "Gap",
+    term == "monthNspr" ~ "Spring",
+    term == "tAnom" ~ "Δt",
+    term == "pAnom" ~ "ΔSM",
+    term == "TreatmentGap:pAnom" ~ "Gap:ΔSM",
+    term == "TreatmentGap:tAnom" ~ "Gap:Δt",
+    term == "monthNspr:TreatmentGap" ~ "Gap:Spring"
+  ),
+  term = factor(term, levels = rev(c("Gap", "Δt", "ΔSM", "Spring", "Gap:Δt", "Gap:ΔSM", "Gap:Spring", "t", "P"))))
 
-# predictions plot I
+
+
+modCoefPlot %>% ggplot(aes(x = mean, y = term)) +
+  geom_vline(xintercept = 0, colour = "grey50", size = 0.4) +
+  geom_pointintervalh(aes(xmin = `2.5%`, xmax = `97.5%`), size = 0.4) +
+  geom_pointintervalh(aes(xmin = `25%`, xmax = `75%`), size = 4, ) +
+  geom_errorbarh(aes(xmin = `2.5%`, xmax = `97.5%`), height = 0.4) +
+  xlab("Effect size") +
+  theme(axis.title.y = element_blank()) +
+  axis.dimLarge
+
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig7.jpg", dpi = 300, height = 4.5, width = 5)
+
+
+
+ # predictions plot I
 add_draws(data = abdatY, draws = drawsAB) %>% 
   ungroup() %>%
   filter(.draw < 20) %>%
@@ -187,6 +215,7 @@ AbundtAnom.mod$BUGSoutput$summary %>%
   scale_color_brewer(palette = "Dark2") +
   scale_fill_brewer(palette = "Dark2")
 
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig10.jpg", dpi = 300, height = 4.5, width = 7)
 
 
 
@@ -198,7 +227,7 @@ precipdat <- abdat %>% distinct(precip7010, sprecip7010, precipLevel, precipLeve
 drawsNew <- add_draws(data = abdatY, draws = drawsAB) %>% 
   ungroup() %>% 
   filter(.draw < 200) %>%
-  left_join(precipdat, by = "sprecip7010")
+  left_join(precipdat)
 
 drawsNew %>% 
   #median_qi(.width = c(0.5, 0.7, 0.975)) %>% 
@@ -208,3 +237,25 @@ drawsNew %>%
   scale_color_brewer(palette = "Dark2") +
   scale_fill_brewer(palette = "Dark2") +
   facet_grid(precipLevelPlot~monthN)
+
+
+abdat %>% 
+  mutate(monthN = case_when(
+    monthN == "spr" ~ "early",
+    monthN == "aut" ~ "late"
+  )) %>%
+  ggplot(aes(x = pAnom, y = seed, colour = Treatment)) +
+  geom_vline(xintercept = 0, colour = "grey70") +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_point(shape = 21) +
+  geom_smooth(method = "lm") +
+  facet_grid(monthN ~ precipLevelPlot) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "soil moisture deviation from 2009-2018 mean",
+       y = "seedling number") +
+  theme_classic() +
+  axis.dim +
+  theme(legend.title = element_blank())
+
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig9.jpg", dpi = 300, width = 9.5, height = 4.5)
+
