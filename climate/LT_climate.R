@@ -120,6 +120,6 @@ monthAv <- mSubClim %>%
   mutate(soilM = if_else(is.na(soilM), soilM.new, soilM)) %>% 
   mutate(tAnom = soilT - LTtval,
          pAnom = soilM - LTPval) %>% 
-  select(monthN, year, siteID, tAnom, pAnom)
+  select(monthN, year, siteID, tAnom, pAnom, soilT, soilM)
 
 

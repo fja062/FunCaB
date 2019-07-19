@@ -17,30 +17,42 @@ abdat <- rc_rtcSumAv  %>%
   filter(Treatment %in% c("Intact", "Gap")) %>%
   mutate(stempLevel = as.vector(scale(tempLevel, scale = FALSE, center =TRUE)),
          Treatment = factor(Treatment, levels = c("Intact", "Gap")),
+         monthN = factor(monthN, levels = c("spr", "aut")),
          precipDiv = precipLevel/1000,
-         sprecipLevel = as.vector(scale(precipDiv, scale = FALSE, center = TRUE))) %>%
-  filter(!is.na(pAnom),
-         !is.na(tAnom))
-
+         sprecipLevel = as.vector(scale(precipDiv, scale = FALSE, center = TRUE)),
+         soilTs = as.vector(scale(soilT, scale = FALSE, center = TRUE)),
+         soilMs = as.vector(scale(soilM, scale = FALSE, center = TRUE)),
+         ) %>%
+  filter(!is.na(soilM),
+         !is.na(soilT))
+library(lme4)
 #MASS::fitdistr(abdat %>% pull(seed), densfun = "negative binomial")
+nbGlmerAb <- abdat %>% 
+  glmer.nb(sqrt(seed) ~ monthN + Treatment + soilTs + I(soilTs^2) + soilMs + I(soilMs^2) + soilTs:Treatment + I(soilTs^2):Treatment + I(soilMs^2):Treatment + soilMs:Treatment + (1|siteID), data = .)
 
+summary(nbGlmerAb)
+plot(nbGlmerAb)
+nbGlmerAb %>%
+  tidy()  %>% 
+  mutate(lower = (estimate - std.error*1.96),
+         upper = (estimate + std.error*1.96))%>% 
+  ggplot(aes(x = estimate, y = term, xmin = lower, xmax = upper)) +
+  geom_errorbarh() +
+  geom_point() +
+  geom_vline(xintercept = 0)
 
 # i) set up a model matrix to feed directly into the model. This avoids potential coding errors. -1 removes the intercept, which I set separately so it can be drawn from a normal distribution.
-matab.t <- model.matrix(~ stempLevel + sprecipLevel + monthN + Treatment + tAnom + pAnom + monthN:Treatment + tAnom:Treatment + pAnom:Treatment, data = abdat)[,-1]
+matab.t <- model.matrix(~ monthN + Treatment + soilTs + I(soilTs^2) + soilMs + I(soilMs^2) + monthN:Treatment + soilTs:Treatment + I(soilTs^2):Treatment + I(soilMs^2):Treatment + soilMs:Treatment, data = abdat)[,-1]
 
 # fake data for predictions
 abdatY <- crossing(Treatment = unique(abdat$Treatment), # rep is slowest on inside
                    monthN = unique(abdat$monthN), 
-                   precipLevel = mean(abdat$precipDiv),
-                   tempLevel = mean(abdat$tempLevel),
-                   pAnom = seq(min(abdat$pAnom), max(abdat$pAnom), length = 50),
-                   tAnom = quantile(abdat$tAnom, prob = c(0.25, 0.75))) %>% 
-  mutate(stempLevel = tempLevel - mean(abdat$tempLevel),
-         sprecipLevel = precipLevel - mean(abdat$precipDiv))
+                   soilMs = seq(min(abdat$soilMs), max(abdat$soilMs), length = 50),
+                   soilTs = quantile(abdat$soilTs, prob = c(0.25, 0.75)))
 abdatY
 
 # model matrix for fake data predictions
-matab.tY <- model.matrix(~ stempLevel + sprecipLevel + monthN + Treatment + tAnom + pAnom + monthN:Treatment + tAnom:Treatment + pAnom:Treatment, data = abdatY)
+matab.tY <- model.matrix(~ monthN + Treatment + soilTs + I(soilTs^2) + soilMs + I(soilMs^2) + monthN:Treatment + soilTs:Treatment + I(soilTs^2):Treatment + I(soilMs^2):Treatment + soilMs:Treatment, data = abdatY)
 
 # remove intercept
 matab.tY <- matab.tY[,-1]
@@ -50,8 +62,7 @@ cat("model {
   # Likelihood
   for (i in 1:n.dat) {
     y[i] ~ dnegbin(p[i], r)
-    p[i] <- mu[i] / (r + lambda[i])
-    #lambda[i] <- exp(mu[i])
+    p[i] <- mu[i] / (r + mu[i])
     log(mu[i]) <- beta.intercept + inprod(beta, matX[i, ]) + beta.site[siteID[i]]
     
     # predictions for model validation, using original data
@@ -87,11 +98,11 @@ for (k in 1:n.datY){
 
 
 # specify the parameters to watch
-paraNames.ab <- c("beta.intercept", "beta", "beta.site", "r", "pPred", "yPred", "muPred", "mu")
+paraNames.ab <- c("beta.intercept", "beta", "beta.site", "r", "yPred", "muPred", "mu")
 
 # iii) Set up a list that contains all the necessary data
-n.treat <- nlevels(factor(rc_rtcSumAv$Treatment))
-n.season <- nlevels(factor(rc_rtcSumAv$monthN))
+n.treat <- nlevels(factor(abdat$Treatment))
+n.season <- nlevels(factor(abdat$monthN))
 
 abDat <- list(y = abdat$seed, 
             n.dat = nrow(abdat),
@@ -104,15 +115,12 @@ abDat <- list(y = abdat$seed,
 
 
 
-
-
-
 # iv) Compile the model and run the MCMC for an adaptation/burn-in phase and sample from the posteriors
 AbundtAnom.mod <- jags(
-  model.file = "~/seedAbund_tAnom.txt",
+  model.file = "~/Documents/FunCaB/analyses/seedAbund_tAnom.txt",
   data = abDat,
-  n.iter = 20000,
-  n.chains = 4,
+  n.iter = 10000,
+  n.chains = 3,
   parameters.to.save = paraNames.ab,
   progress.bar = "text"
 )
@@ -148,8 +156,7 @@ testZeroInflation(sim.abT)                  # no zero-inflation problems
 plot(AbundtAnom.mod)                        # I think this looks alright...
 testTemporalAutocorrelation(sim.abT)
 testSpatialAutocorrelation(sim.abT)
-library(magrittr)
-traceplot(AbundtAnom.mod, match.head = TRUE, varname = "beta", mfrow = c(4,4))
+traceplot(AbundtAnom.mod, match.head = TRUE, varname = "beta", mfrow = c(3,4))
 AbundtAnom.mod$BUGSoutput$sims.list$beta.intercept %>% as_data_frame() %>% as_tibble() %$% acf(V1)
 
 
@@ -208,10 +215,10 @@ AbundtAnom.mod$BUGSoutput$summary %>%
   filter(grepl("muPred", term)) %>% 
   bind_cols(abdatY) %>% 
   #left_join(precipdat, by = "sprecip7010") %>% 
-  ggplot(aes(x = pAnom, y = mean, ymax = `97.5%`, ymin = `2.5%`, fill = Treatment)) +
+  ggplot(aes(x = soilMs, y = mean, ymax = `97.5%`, ymin = `2.5%`, fill = Treatment)) +
   geom_ribbon(alpha = 0.2) +
-  geom_line(aes(colour = Treatment, group = interaction(Treatment, precipLevel))) +
-  facet_grid(monthN~tAnom)+
+  geom_line(aes(colour = Treatment, group = interaction(Treatment, monthN, soilTs))) +
+  facet_grid(monthN~soilTs) +
   scale_color_brewer(palette = "Dark2") +
   scale_fill_brewer(palette = "Dark2")
 

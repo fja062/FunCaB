@@ -1,8 +1,8 @@
 # source species composition compilation
-source("~/OneDrive - University of Bergen/Research/FunCaB/SeedClim-Climate-Data/funcab/vegetation/00funcab_data_processing.R")
+source("~/Documents/FunCaB/bioticInteractions/composition/dataProcessing/00funcab_data_processing.R")
 
 # source trait imputation
-source("~/OneDrive - University of Bergen/Research/FunCaB/SeedClim-Climate-Data/funcab/vegetation/trait_imputation.R")
+source("~/Documents/FunCaB/bioticInteractions/traits/trait_imputation.R")
 
 # load libraries
 library(vegan)
@@ -22,8 +22,11 @@ community_cover <- comp2 %>%
          vegetationHeight = if_else(Treatment == "FGB" & Year > 2015, 0, vegetationHeight),
          mossHeight = if_else(Treatment == "FGB" & Year > 2015, 0, mossHeight))
 
+# filter out spp covers in wrong removal plots
+community_FD <- community_FD %>% 
+  filter(!(Treatment %in% c("F", "FB", "FGB") & functionalGroup == "forb"),
+         !(Treatment %in% c("G", "GB", "FGB") & functionalGroup == "graminoid"))
 
-# calculation of CWM and FDvar; Community weighted mean and community-weighted variance of trait values
 # join imputed traits with species cover, and filter for treatment
 community_FD <- left_join(community_cover, Species_traits, by = c("speciesID", "species", "siteID")) %>%
   select(siteID, Treatment, blockID, turfID, Year, species, functionalGroup, cover, C, N, CN, SLA, Lth, LDMC, sqrtLA, logHeight) %>%
@@ -50,7 +53,7 @@ community_FDWM <- community_FD %>%
             Wmean_CN = weighted_mean(CN, cover),
             Wmean_C = weighted_mean(C, cover),
             Wmean_N = weighted_mean(N, cover),
-            WmeanPCA = weighted_mean(PC1, cover),
+            #WmeanPCA = weighted_mean(PC1, cover),
             Wvar_LDMC= wt.var(LDMC, cover),
             Wvar_Lth = sqrt(wt.var(Lth, cover)),
             Wvar_LA  = sqrt(wt.var(sqrtLA, cover)),
@@ -68,7 +71,7 @@ community_FDWM <- community_FDWM %>%
 
 community_FDWM <- community_FDWM %>% 
   group_by(turfID, trait, siteID, functionalGroup) %>% 
-  left_join(community_FD %>% filter(Treatment == "C") %>% ungroup() %>% select(Cvalue = value, siteID, blockID, trait)) %>%
+  left_join(community_FDWM %>% filter(Treatment == "C") %>% ungroup() %>% select(Cvalue = value, siteID, blockID, trait)) %>%
   mutate(valueAnom = value - Cvalue,
          char = case_when(
            Treatment %in% c("B", "F", "G") ~ "effect",
@@ -76,7 +79,7 @@ community_FDWM <- community_FDWM %>%
          )) %>%
   filter(!Treatment %in% c("C", "FGB"))
 
-save(community_FDWM, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/community_FD.RData")
+#save(community_FDWM, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/community_FD.RData")
 
 # attach weather data
 community_FDWM <- community_FDWM %>% 
@@ -185,27 +188,9 @@ Glancemod1temp <- community_FD_analysis %>%
 
 #------------ PLOTTING --------------#
 # source plotting colours etc
-source("~/OneDrive - University of Bergen/Research/FunCaB/SeedclimComm/inst/graminoidRemovals/plotting_dim.R")
+source("~/Documents/FunCaB/figures/plotting_dim.R")
 
-community_cover %>% 
-  gather(mossCov, forbCov, graminoidCov, key = FG, value = value) %>% 
-  group_by(turfID, siteID, FG) %>% 
-  left_join(community_cover %>% filter(Treatment == "C") %>% ungroup() %>% select(Cvalue = value, siteID, blockID, trait))
-
-community_FDPlot %>% ggplot(aes(x = tempLevel, y = valueAnom, colour = Treatment, linetype)) +
-  stat_summary(fun.data = "mean_cl_boot", size = 0.8, position = position_dodge(0.5)) +
-  #stat_summary(fun.data = "mean_cl_boot", geom = "line", size = 0.8) +
-  facet_wrap(~ trait, scales = "free_y") +
-  geom_hline(yintercept = 0)
-
-community_FDPlot %>% ggplot(aes(x = precipLevel, y = valueAnom, colour = Treatment, linetype)) +
-  stat_summary(fun.data = "mean_cl_boot", size = 0.8, position = position_dodge(130)) +
-  #stat_summary(fun.data = "mean_cl_boot", geom = "line", size = 0.8) +
-  facet_wrap(~ trait, scales = "free_y") +
-  geom_hline(yintercept = 0)
-
-
-g <- community_FD %>% 
+g <- community_FDWM %>% 
   filter(!Treatment == "GF",
          !grepl("Wvar", trait)) %>%
  # mutate(Treatment = case_when(
@@ -214,8 +199,7 @@ g <- community_FD %>%
  #)) %>% 
   group_by(trait) %>% 
   mutate(scaleAnom = scale(valueAnom)) %>% 
-  filter(!is.na(functionalGroup),
-         trait == "WmeanPCA") %>% 
+  filter(!is.na(functionalGroup)) %>% 
   ggplot(aes(x = factor(tempLevel), y = factor(precipLevel), fill = scaleAnom)) +
   geom_tile() +
   scale_fill_gradient2(low = pal1[3], mid = "snow1", high = pal1[4]) +
