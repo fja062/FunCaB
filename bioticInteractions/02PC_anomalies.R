@@ -27,23 +27,121 @@ community_cover <- comp2 %>%
 
 # join imputed traits with species cover, and filter for treatment
 communityFD <- left_join(community_cover, Species_traits, by = c("speciesID", "species", "siteID")) %>%
-  select(siteID, Treatment, blockID, turfID, Year, species, functionalGroup, cover, C, N, CN, SLA, Lth, LDMC, sqrtLA, logHeight) %>%
-  gather(C:logHeight, key = trait, value = value) %>% 
-  mutate(trStrat = case_when(
-    trait %in% c("N", "SLA", "LDMC") ~ "LE",
-    trait %in% c("logHeight", "sqrtLA", "Lth") ~ "Gro",
-    TRUE ~ "Other"
-  )) %>% 
-  filter(!is.na(cover), cover > 0) %>% 
-  spread(key = trait, value = value)
+  select(siteID, Treatment, blockID, turfID, Year, species, functionalGroup, cover, N, SLA, LDMC, Lth, logHeight)
 
 # filter out spp covers in wrong removal plots
 communityFD <- communityFD %>% 
-  filter(!(Treatment %in% c("F", "FB", "FGB") & functionalGroup == "forb"),
-         !(Treatment %in% c("G", "GB", "FGB") & functionalGroup == "graminoid"))
+  filter(!Treatment == "FGB" | is.na(functionalGroup)) %>%
+  filter(!Treatment == "F"   | !functionalGroup == "forb") %>%
+  filter(!Treatment == "FB"  | !functionalGroup == "forb") %>%
+  filter(!Treatment == "GB"  | !functionalGroup == "graminoid") %>%
+  filter(!Treatment == "G"   | !functionalGroup == "graminoid")
 
 # join to climate data
 communityFD <- communityFD %>% 
+  left_join(weather)
+
+
+#save(communityFD, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/community_FD.RData")
+
+load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/community_FD.RData")
+
+communityFDwm <- communityFD %>% 
+  group_by(siteID, blockID, turfID, Treatment, Year) %>%
+  mutate(richness = sum(n_distinct(species))) %>%
+  mutate(diversity = diversity(cover, index = "shannon")) %>%
+  mutate(evenness = (diversity/log(richness))) %>% 
+  filter(!precipLevel == 2000) %>% 
+  group_by(siteID, blockID, turfID, Treatment, functionalGroup) %>%
+  summarise(sumcover = sum(cover),
+            richness = mean(richness),
+            diversity = mean(diversity),
+            evenness = mean(evenness),
+            Wmean_SLA = weighted.mean(SLA, cover, na.rm = TRUE),
+            Wmean_Lth = weighted.mean(Lth, cover, na.rm = TRUE),
+            Wmean_N = weighted.mean(N, cover, na.rm = TRUE),
+            Wmean_logHeight = weighted.mean(logHeight, cover, na.rm = TRUE),
+            ) %>% 
+  ungroup()
+
+
+B.flux_CI <- B.flux_CI %>% ungroup() %>% 
+  filter(Cflux == "GPP") %>% 
+  left_join(dict_Site, by = c("Site" = "old")) %>% 
+  select(siteID = new, blockID = Block, Treatment, turfID, CI, bryophyteCov, forbCov, graminoidCov, flux)
+
+trComp <- communityFDwm %>% 
+  left_join(B.flux_CI) %>% 
+  filter(!Treatment %in% c("C", "FGB")) %>% 
+  left_join(weather) %>% 
+  mutate(sWmean_SLA = scale(Wmean_SLA/100, scale = FALSE, center = TRUE),
+         precipdiv = precip7010/1000,
+         sprecip7010 = scale(precipdiv, scale = FALSE, center = TRUE),
+         stemp7010 = scale(temp7010, scale = FALSE, center = TRUE)) %>% 
+  filter(!Treatment  == "F" | bryophyteCov  > 1,
+         !Treatment  == "G" | bryophyteCov  > 1,
+         !Treatment  == "GF" | bryophyteCov > 1
+         ) %>% 
+         mutate(bryophyteCov = bryophyteCov/100)
+
+trComp %>% ggplot(aes(x = bryophyteCov, y = CI, colour = Treatment)) +
+  geom_point()
+trComp %>% filter(Treatment == "GF") %>% ggplot(aes(x = bryophyteCov, y = CI)) +
+  geom_point()
+
+# 1st analysis: CLIMATE
+lm1 <- trComp %>% 
+  filter(!Treatment == "GF") %>% 
+  group_by(functionalGroup) %>% 
+  nest(.key = "dat") %>% 
+  mutate(mod = map(dat, ~lmer(CI ~ stemp7010 + sprecip7010 + Treatment + (1|siteID), data = .)),
+         coef = map(mod, tidy)) %>% 
+  unnest(coef)
+ 
+
+
+#### Fig of Controls vs treated in 2015 for cover to check for similarity.
+
+
+
+
+
+# 2nd analysis: FORB
+trComp %>% filter(Treatment %in% c("GB", "G")) %>% 
+  ggplot(aes(x = temp7010, y = CI, colour = Treatment)) +
+  geom_point()
+
+trComp %>% filter(Treatment %in% c("FB", "F")) %>% 
+  ggplot(aes(x = Wmean_SLA, y = CI, colour = Treatment)) +
+  geom_point()
+
+trComp %>% filter(Treatment %in% c("GB", "G")) %>% 
+  lmer(CI ~ sWmean_SLA + Wmean_Lth + Wmean_logHeight + Wmean_N + bryophyteCov + (1|siteID), data = .) %>% 
+  tidy()
+
+# 3rd analysis: GRAMINOID
+trComp %>% filter(Treatment %in% c("FB", "F")) %>% 
+  ggplot(aes(x = sWmean_SLA, y = CI, colour = Treatment)) +
+  geom_point()
+
+trComp %>% filter(Treatment %in% c("FB", "F")) %>% 
+  lmer(CI ~ sWmean_SLA + Wmean_Lth + Wmean_logHeight + Wmean_N + bryophyteCov + (1|siteID), data = .) %>% 
+  tidy()
+
+
+
+community_pcAnom <- communityFDwm %>% 
+  group_by(turfID, siteID, functionalGroup) %>% 
+  left_join(communityFDwm %>% filter(Treatment == "C") %>% ungroup() %>% select(CWmean_PC1 = Wmean_PC1, siteID, blockID, functionalGroup)) %>%
+  mutate(PCAnom = Wmean_PC1 - CWmean_PC1,
+         char = case_when(
+           Treatment %in% c("B", "F", "G") ~ "effect",
+           Treatment %in% c("FB", "GF", "GB") ~ "response"
+         )) %>%
+  filter(!Treatment %in% c("C", "FGB"))
+
+# attach weather data
+community_pcAnom <- community_pcAnom %>% 
   left_join(weather)
 
 # pca scores for traits
@@ -97,40 +195,3 @@ PCvariancePlot <- communityFDrd %>%
   axis.dimLarge
 
 ggsave(PCvariancePlot, filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 3/figures/supfig2.jpg", dpi = 300, height = 4.5, width = 8)
-
-
-communityFDwm <- communityFD %>% 
-  group_by(siteID, blockID, turfID, Treatment, Year) %>%
-  mutate(richness = sum(n_distinct(species))) %>%
-  mutate(diversity = diversity(cover, index = "shannon")) %>%
-  mutate(evenness = (diversity/log(richness))) %>% 
-  group_by(siteID, blockID, turfID, Treatment, functionalGroup) %>%
-  summarise(sumcover = sum(cover),
-            richness = mean(richness),
-            diversity = mean(diversity),
-            evenness = mean(evenness),
-            Wmean_PC1 = weighted.mean(PC1, cover, na.rm = TRUE)) %>% 
-  ungroup()
-
-community_pcAnom %>% 
-  filter(!Treatment == "GF") %>% 
-  left_join(weather) %>% 
-  filter(!is.na(functionalGroup)) %>% 
-  ggplot(aes(x = factor(tempLevel), y = factor(precipLevel), fill = PCAnom)) +
-  geom_tile() +
-  scale_fill_gradient2(low = pal1[3], mid = "snow1", high = pal1[4]) +
-  facet_grid(functionalGroup ~ Treatment)
-
-community_pcAnom <- communityFDwm %>% 
-  group_by(turfID, siteID, functionalGroup) %>% 
-  left_join(communityFDwm %>% filter(Treatment == "C") %>% ungroup() %>% select(CWmean_PC1 = Wmean_PC1, siteID, blockID, functionalGroup)) %>%
-  mutate(PCAnom = Wmean_PC1 - CWmean_PC1,
-         char = case_when(
-           Treatment %in% c("B", "F", "G") ~ "effect",
-           Treatment %in% c("FB", "GF", "GB") ~ "response"
-         )) %>%
-  filter(!Treatment %in% c("C", "FGB"))
-
-# attach weather data
-community_pcAnom <- community_pcAnom %>% 
-  left_join(weather)

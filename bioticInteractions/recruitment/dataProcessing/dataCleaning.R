@@ -37,7 +37,7 @@ seedMass <- tbl(con, "numeric_traits") %>%
 
 turfDict <- comp2 %>% 
   distinct(siteID, blockID, Treatment, turfID) %>% 
-  filter(Treatment %in% c("G", "B", "GB", "C", "FGB")) %>% 
+  filter(!Treatment  == "XC") %>% 
   mutate(Round = 1, Round2 = 2) %>% 
   gather(Round, Round2, key = "v", value = "Round") %>% 
   select(-v)
@@ -75,37 +75,16 @@ seedTot <- seed %>%
   right_join(turfDict %>% mutate(Round = as.factor(Round))) %>% 
   mutate(seed = case_when(is.na(seed) ~ 0L, 
                              TRUE ~ seed)) %>% 
-  group_by(turfID, Round) %>% 
-  mutate(seedSum_m2 = seed/0.0625) %>% 
   ungroup() 
 
-seedTot <- seedTot %>% 
-  #left_join(seedcomp, by = c("siteID", "turfID", "blockID", "Treatment")) %>% 
-  mutate(Treatment = case_when(
-    Treatment == "FGB" ~ "Gap",
-    Treatment == "C" ~ "Intact",
-    Treatment == "B" ~ "GF",
-    Treatment == "GB" ~ "F",
-    Treatment == "G" ~ "FB",
-    TRUE ~ Treatment
-  )) %>%
-  #spread(Round, seedSum) %>% 
-  #mutate(perChange = ((`2`/sum(`1`, `2`, na.rm = TRUE)) - (`1`/sum(`1`, `2`, na.rm = TRUE)))*100,
-  #       ) %>% 
-  #gather(`1`, `2`, key = season, value = seed) %>% 
+seed2018 <- seedTot %>% 
+  mutate(Treatment = recode(Treatment, "FGB" = "Gap", "C" = "Intact", "GF" = "B", "F" = "GB", "FB" = "G", "GB" = "F", "B" = "GF", "G" = "FB")) %>%
   mutate(monthN = recode(Round, `1` = "spr", `2` = "aut"),
          year = 2018) %>% 
-  select(-Round, -seedSum_m2)
+  select(-Round)
 
-# weather stuff
-#seedTot <- seedTot %>%
-#  left_join(weather) %>% 
-#  mutate(
-#    precip7010 = precip7010 / 1000,
-#    sprecip7010 = scale(precip7010, center = TRUE, scale = FALSE),
-#    stemp7010 = scale(temp7010, center = TRUE, scale = FALSE)
-#  )
-
+seedTot <- seed2018 %>% 
+  filter(Treatment %in% c("Intact", "Gap"))
 
 
 ######### ----- survival ----- ###########
@@ -238,5 +217,6 @@ rc_rtcSumAv <- rc_rtcSum %>%
 
 
 save(rc_rtcSumAv, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedAbundData.RData")
+save(seed2018, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedAbundData2018.RData")
 
 save(survival, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedSurvData.RData")
