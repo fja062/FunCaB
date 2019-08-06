@@ -4,7 +4,53 @@
 library(broom)
 
 # read in biomass files
-bio15 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_biomass/biomass_removals_2015.xlsx")
+bio15 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_biomass/FunCaB_biomass_2015-2018.xlsx", sheet = 1) %>% select(-Date)
+bio16 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_biomass/FunCaB_biomass_2015-2018.xlsx", sheet = 2) %>% select(-Date) %>% mutate(Biomass = as.numeric(Biomass))
+bio17 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_biomass/FunCaB_biomass_2015-2018.xlsx", sheet = 3) %>% select(-Date) %>% mutate(Biomass = as.numeric(Biomass))
+bio18 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_biomass/FunCaB_biomass_2015-2018.xlsx", sheet = 4) %>% select(-Date)
+
+biomass <- bind_rows(bio15, bio16, bio17, bio18) %>% 
+  filter(Round == 1,
+         !Treatment == "RTC") %>% 
+  left_join(dict_Site, by = c("Site" = "v2")) %>% 
+  mutate(siteID = new) %>% 
+  select(-Site, -old, -v3, -new) %>% 
+  group_by(Year, siteID, Treatment, Removed_FG) %>% 
+  summarise(Biomass = mean(Biomass, na.rm = TRUE)) %>% 
+  left_join(weather) %>% 
+  ungroup() %>% 
+  mutate(Year = as.numeric(substr(Year, 3,4)),
+         Temperature = factor(tempLevel, levels = c(6.5, 8.5, 10.5), labels = c("Alpine", "Sub-alpine", "Boreal")))
+
+biomass %>% ggplot(aes(x = Year, y = Biomass, colour = Treatment, linetype = Temperature)) +
+  geom_line(size = 0.8) +
+  facet_grid(precipLevel ~ Removed_FG) +
+  theme_classic() +
+  scale_color_viridis_d() +
+  axis.dim +
+  labs(y = "Mean biomass removed (g)")
+
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/supfig7.jpg", dpi = 300, height = 9, width = 8)
+
+funCov <- comp2 %>% filter(Treatment == "C") %>% 
+  left_join(weather) %>%
+  group_by(tempLevel, precipLevel, Year) %>% 
+  summarise(mossCov = mean(mossCov, na.rm = TRUE),
+            graminoidCov = mean(graminoidCov, na.rm = TRUE),
+            forbCov = mean(forbCov, na.rm = TRUE)
+  )
+
+funCov %>% 
+  gather(mossCov, graminoidCov, forbCov, key = FG, value = cov) %>% ggplot(aes(x = Year, y = cov, colour = FG)) + 
+  stat_summary(fun.data = "mean_cl_boot") + 
+  stat_summary(fun.data = "mean_cl_boot", geom = "line") + 
+  facet_grid(.~precipLevel)
+
+funCov %>% 
+  gather(mossCov, graminoidCov, forbCov, key = FG, value = cov) %>% ggplot(aes(x = Year, y = cov, colour = FG)) + 
+  stat_summary(fun.data = "mean_cl_boot") + 
+  stat_summary(fun.data = "mean_cl_boot", geom = "line") + 
+  facet_grid(.~tempLevel)
 
 biomass <- bio15 %>%
   filter(!Treatment %in% c("RTC", "RTC2nd")) %>% 

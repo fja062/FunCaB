@@ -1,35 +1,51 @@
 # load packages
-library(ncdf4)
+library("tidyverse")
+library("ncdf4")
+library("ncdf4.helpers")
 library(chron)
 library(lattice)
 library(RColorBrewer)
+library(reshape2)
 
 
 # read in file
-ncpath <- "~/OneDrive - University of Bergen/Research/FunCaB/Data/climate_data/"
-ncname <- "clt_EUR-11_ICHEC-EC-EARTH_historical_r12i1p1_SMHI-RCA4_v1_mon_197001-197012_box"  
+ncpath <- "~/Documents/"
+ncname <- "seNorge2018_TG_1957_2017"  
 ncfname <- paste(ncpath, ncname, ".nc", sep="")
-dname <- "clt" # cloud_area_fraction
+dname <- "tg" # cloud_area_fraction
 
 ncin <- nc_open(ncfname)
 print(ncin)
 
+
+
+#### Load SeedClim coordinates ####
+sites <- read.csv("~/OneDrive - University of Bergen/Research/FunCaB/Data/Site_Geo_Info.csv", header=T, sep=";") %>% as_tibble()
+sites
+site.names <- sites$siteID
+coords <- sites %>% select(x_UTM33_North, y_UTM33_north)
+
 # get longitude and latitude
-lon <- ncvar_get(ncin,"lon")
-nlon <- dim(lon)
-lat <- ncvar_get(ncin,"lat")
-nlat <- dim(lat)
+lon <- ncvar_get(ncin, "lon")
+lonIndex  <- which(lon > min(coords$x_UTM33_North) | lon < max(coords$x_UTM33_North))
+lat <- ncvar_get(ncin, "lat", verbose = F)
+latIndex  <- which(lat > min(coords$y_UTM33_north) | lat < max(coords$y_UTM33_north))
 
 # get time
-time <- ncvar_get(ncin,"time")
+time <- ncvar_get(ncin, "time")
 tunits <- ncatt_get(ncin,"time","units")
 nt <- dim(time)
 
+tgOut <- nc.get.var.subset.by.axes(ncin, dname, 
+                          axis.indices = list(X = lonIndex,
+                                              Y = latIndex))
+
 # get temperature variable and its attributes
-tmp_array <- ncvar_get(ncin,dname)
+tmp_array <- ncvar_get(ncin, dname)
+
 dlname <- ncatt_get(ncin,dname,"long_name")
 dunits <- ncatt_get(ncin,dname,"units")
-fillvalue <- ncatt_get(ncin,dname,"_FillValue")
+fillvalue <- ncatt_get(ncin,dname, "_FillValue")
 dim(tmp_array)
 
 # convert time -- split the time units string into fields

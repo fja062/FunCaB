@@ -272,7 +272,11 @@ comp2 <- comp2 %>%
 
 comp2 <- comp2 %>% 
   group_by(turfID, Year) %>% 
-  mutate(totalBryophytes = if_else(is.na(totalBryophytes) & !is.na(pleuro) & !is.na(acro), pleuro + acro, totalBryophytes)) %>% 
+  mutate(acro = case_when(is.na(acro) ~ 0,
+                          TRUE ~ acro),
+         pleuro = case_when(is.na(pleuro) ~ 0,
+                          TRUE ~ pleuro),
+         totalBryophytes = if_else(is.na(totalBryophytes) & !is.na(pleuro) & !is.na(acro), pleuro + acro, totalBryophytes)) %>% 
   ungroup() %>% 
   mutate(turfID = if_else(grepl("TTC", turfID), turfID, substring(turfID, 4, n())),
          Treatment = gsub(" ", "", Treatment),

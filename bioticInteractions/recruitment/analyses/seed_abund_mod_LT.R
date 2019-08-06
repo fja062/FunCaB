@@ -273,7 +273,28 @@ drawsNew %>%
   scale_fill_brewer(palette = "Dark2") +
   facet_grid(precipLevelPlot~monthN)
 
+# soil moisture deviation
+abdat %>% 
+  mutate(monthN = case_when(
+    monthN == "spr" ~ "early",
+    monthN == "aut" ~ "late"
+  )) %>%
+  ggplot(aes(x = pAnom, y = seed, colour = Treatment)) +
+  geom_vline(xintercept = 0, colour = "grey70") +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_point(shape = 21, size = 3) +
+  geom_smooth(method = "lm") +
+  facet_grid(.~monthN) +
+  scale_color_manual(values = c("Black", "grey60")) +
+  labs(x = "soil moisture deviation from 2009-2018 mean",
+       y = "seedling number") +
+  theme_classic() +
+  axis.dim +
+  theme(legend.title = element_blank())
 
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig9.jpg", dpi = 300, width = 7.5, height = 4.5)
+
+# temperature deviation
 abdat %>% 
   mutate(monthN = case_when(
     monthN == "spr" ~ "early",
@@ -292,5 +313,4 @@ abdat %>%
   axis.dim +
   theme(legend.title = element_blank())
 
-ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig9.jpg", dpi = 300, width = 7.5, height = 4.5)
-
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig9b.jpg", dpi = 300, width = 7.5, height = 4.5)

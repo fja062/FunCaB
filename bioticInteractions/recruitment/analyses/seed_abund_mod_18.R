@@ -1,7 +1,15 @@
 # load packages
-library(rjags)
+library("rjags")
+library("R2jags")
+library("tidyverse")
+library("tidybayes")
+library("DHARMa")
+source("~/Documents/FunCaB/figures/plotting_dim.R")
+
 
 # load data
+load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedAbundData2018.RData")
+
 dat18 <- seed2018 %>% 
   filter(!is.na(seed)) %>%     # remove NAs otherwise model fails
   mutate(blockID = as.character(blockID),
@@ -109,8 +117,8 @@ modat18 <- list(y = dat18$seed,
 AbundtAnom.mod <- jags(
   model.file = "~/Documents/FunCaB/analyses/seedAbund_tAnom18.txt",
   data = modat18,
-  n.iter = 8000,
-  n.chains = 3,
+  n.iter = 20000,
+  n.chains = 4,
   parameters.to.save = paraNames.ab,
   progress.bar = "text"
 )
@@ -185,10 +193,14 @@ AbundtAnom.mod$BUGSoutput$summary %>%
   as_tibble(rownames = "term") %>% 
   filter(grepl("muPred", term)) %>% 
   bind_cols(datY18) %>% 
+  filter(Treatment %in% c("Intact", "Gap", "F", "G", "B")) %>% 
   mutate(stemp7010 = as.character(round(stemp7010, digits = 1)),
-         tempLevel = temp7010) %>% 
+         tempLevel = temp7010,
+         monthN = factor(monthN, levels = c("spr", "aut"), labels = c("early", "late"))) %>% 
   ggplot(aes(x = precip7010, y = mean)) +
-  geom_point(data = dat18, aes(y = seed, x = precipDiv, colour = factor(tempLevel)), shape = 21, alpha = 0.4) +
+  geom_point(data = dat18 %>% 
+               filter(Treatment %in% c("Intact", "Gap", "F", "G", "B")) %>% 
+               mutate(monthN = factor(monthN, levels = c("spr", "aut"), labels = c("early", "late"))), aes(y = seed, x = precipDiv, colour = factor(tempLevel)), shape = 21, alpha = 0.4) +
   geom_ribbon(alpha = 0.2, aes(ymax = `97.5%`, ymin = `2.5%`, fill = factor(tempLevel))) +
   geom_line(aes(colour = factor(tempLevel))) +
   facet_grid(monthN~Treatment) +
