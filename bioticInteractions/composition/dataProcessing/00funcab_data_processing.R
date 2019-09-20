@@ -83,6 +83,11 @@ my.GR.data <- my.GR.data %>%
   filter(!is.na(cover),
          !(TTtreat == "37 TTC" & Year > 2015))
 
+# duplicating two plots that are missing from 2017
+OvsSkj17 <- my.GR.data %>% filter(TTtreat %in% c("297 TTC", "246 TTC"), Year == 2016) %>% 
+  mutate(Year = 2017)
+
+my.GR.data <- my.GR.data %>% bind_rows(OvsSkj17)
 
 ####-------- load funcab data ---------####
 
@@ -200,13 +205,14 @@ ttcs17 <- composition %>%
 
 # join with TTC data
 comp2 <- composition %>% 
-  mutate(blockID = if_else(nchar(blockID) > 1, gsub("[^[:digit:]]", "", blockID), blockID)) %>% 
-  full_join(my.GR.data, by = c("siteID", "blockID", "turfID", "Treatment", "Year", "species", "recorder"), suffix = c("", ".new")) %>% 
+  mutate(blockID = if_else(nchar(blockID) > 1, gsub("[^[:digit:]]", "", blockID), blockID)) %>%
+  full_join(my.GR.data, by = c("siteID", "blockID", "turfID", "Treatment", "Year", "species"), suffix = c("", ".new")) %>% 
   mutate(cover = coalesce(cover.new, cover),
+         recorder = coalesce(recorder.new, recorder),
          totalBryophytes = coalesce(totalBryophytes.new, totalBryophytes),
          vegetationHeight = coalesce(vegetationHeight.new, vegetationHeight),
          mossHeight = coalesce(mossHeight.new, mossHeight)) %>% 
-  select(-cover.new, -totalBryophytes.new, -vegetationHeight.new, -mossHeight.new)
+  select(-cover.new, -totalBryophytes.new, -vegetationHeight.new, -mossHeight.new, -recorder.new)
 
 
 #mean of previous and next year
@@ -231,7 +237,7 @@ missingCov <- missingCov %>%
   filter(n() == 2) %>% #need before and after year
   summarise(cover = mean(cover), flag = "Subturf w/o cover. Imputed as mean of adjacent years")
 
-misCovSpp <- comp2 %>% filter(Treatment == "XC") %>% 
+misCovSpp <- comp2 %>% filter(!Treatment == "XC") %>% 
   filter(is.na(cover) & !is.na(presence)) %>% 
   distinct(siteID, blockID, Treatment, turfID, Year, species)
 
@@ -329,10 +335,6 @@ comp2 <- comp2 %>%
     totalBryophytes = case_when(
       turfID == 'Alr1F' & Year == 2015 ~ 0,
       turfID == 'Alr1FGB' & Year == 2015 ~ 0,
-      turfID == 'Alr1GB' & Year == 2015 ~ 0,
-      turfID == 'Alr1GF' & Year == 2015 ~ 0,
-      turfID == 'Alr3G' & Year == 2015 ~ 0,
-      turfID == 'Fau2G' & Year == 2015 ~ 0,
       turfID == 'Ovs1C' & Year == 2015 ~ 100,
       turfID == 'Fau2C' & Year == 2015 ~ 40,
       TRUE ~ totalBryophytes),

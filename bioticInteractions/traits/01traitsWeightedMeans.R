@@ -1,6 +1,6 @@
 #----- TRAITS AND WEIGHTED MEANS ----#
 # source Ragnhild's trait data
-source("~/OneDrive - University of Bergen/Research/FunCaB/seedclimComm/ragnhild_trait_data/load_traits.R") # warning here is fine, it just means those spp didn't have CN data collected
+source("~/Documents/SeedclimComm/ragnhild_trait_data/load_traits.R") # warning here is fine, it just means those spp didn't have CN data collected
 
 traits <- tbl(con, "taxon") %>% 
   collect() %>% 
@@ -39,7 +39,7 @@ composition <- composition %>%
          graminoid = if_else(grepl("G", Treatment), 0, graminoid)) %>% 
   ungroup()
 
-#save(composition, file = "/Volumes/Macintosh HD/Users/fja062/Desktop/funcabComp.RData")
+save(composition, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedVegComp.RData")
   
   
 composition %>% left_join(weather) %>% 

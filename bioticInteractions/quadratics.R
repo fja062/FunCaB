@@ -78,7 +78,11 @@ forbcomAnalysis %>% filter(trait == "wmeanLDMC") %>%
   geom_smooth(method = "lm",formula = 'y~poly(x, 3)', colour = "grey50")
 
 forbcomAnalysis %>% filter(trait == "wmeanLDMC") %>% 
-  lmer(value ~ TTtreat*Stemp0916*Sprecip0916*SYear + TTtreat*Stemp0916*SYear*I(Sprecip0916^2) - TTtreat:Stemp0916:Sprecip0916:SYear - TTtreat:Stemp0916:SYear:I(Sprecip0916^2) + (1|siteID/blockID), REML = FALSE, data = .) %>% 
+  lmer(value ~ TTtreat*Stemp0916*Sprecip0916*SYear + 
+         TTtreat*Stemp0916*SYear*I(Sprecip0916^2) - 
+         TTtreat:Stemp0916:Sprecip0916:SYear - 
+         TTtreat:Stemp0916:SYear:I(Sprecip0916^2) + 
+         (1|siteID/blockID), REML = FALSE, data = .) %>% 
   tidy() %>% 
   View()
 
