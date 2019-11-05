@@ -146,17 +146,36 @@ composition <- funcab_2016 %>%
   select_if(colSums(!is.na(.)) > 0) %>% 
   gather(c("Ach mil":"Vio sp"), key = "species", value = "cover")
 
-subTurfFreq <- composition %>% filter(subPlot == "T", !is.na(cover)) %>% 
+# create table of species presences in turfs
+subTurfFreq <- composition %>% 
+  filter(subPlot == "T", !is.na(cover)) %>% 
   select(siteID, Treatment, turfID, Year, species, presence = cover) %>% 
   mutate(presence = 1)
 
+# join species presences back onto full dataset
 composition <- composition %>% 
   filter(subPlot == "%") %>% 
-  left_join(subTurfFreq) %>% 
+  left_join(subTurfFreq)
+
+
+# overwrite problem spp with their correct names and covers
+composition <- composition %>% 
   mutate(species = gsub("\\ |\\_", ".", species)) %>% 
+  mutate_at(vars(cover, Year, totalGraminoids:pleuro), as.numeric) %>% 
+  left_join(prob.sp, by = c("Year", "turfID", "siteID", "species" = "old"), suffix = c("", ".new")) %>%
+  mutate(species = coalesce(new, species),
+         cover = coalesce(cover.new, cover, )) %>% 
+  select(-new, -cover.new, -subPlot) %>% 
+  left_join(prob.sp.name, by = c("species" = "old")) %>% 
+  mutate(species2 = if_else(!is.na(new), new, species)) %>% 
+  select(-species, -new) %>% 
+  rename(species = species2)
+
+
+# adjust species, turf and site names
+composition <- composition %>% 
   left_join(dict_TTC_turf, by = c("turfID" = "TTtreat"), suffix = c(".old", ".new")) %>%
   mutate(turfID = if_else(!is.na(turfID.new), turfID.new, turfID)) %>% 
-  mutate_at(vars(cover, Year, totalGraminoids:pleuro), as.numeric) %>% 
   mutate(turfID = if_else((blockID == 16 & siteID == "Gudmedalen"), gsub("16", "5", turfID), turfID),
          turfID = if_else((siteID == "Alrust" & blockID == "3" & Year == 2015 & Treatment == "C"), "Alr3C", turfID),
          turfID = recode(turfID, "Alr4FGB" = "Alr5C"),
@@ -169,19 +188,9 @@ composition <- composition %>%
          !(turfID == "Alr3C" & recorder == "Siri"))
 
 
-
-# overwrite problem spp with their correct names and covers
-composition <- composition %>% 
-  left_join(prob.sp, by = c("Year", "turfID", "siteID", "species" = "old"), suffix = c("", ".new")) %>%
-  mutate(species = coalesce(new, species),
-         cover = coalesce(cover.new, cover)) %>% 
-  select(-new, -cover.new, -subPlot, - turfID.new) %>% 
-  left_join(prob.sp.name, by = c("species" = "old")) %>% 
-  mutate(species = if_else(!is.na(new), new, species))
-
 FGBs <- composition %>% 
   filter(Treatment %in% c("FGB", "GF")) %>% 
-  select(-species, -cover) %>% 
+  select(-species, -cover, -turfID.new) %>% 
   distinct() %>% 
   filter(Year > 2015)
 
@@ -189,13 +198,13 @@ FGBs <- composition %>%
 ttcs1516 <- composition %>% 
   filter(Treatment == "C", !Year %in% c(2017, 2018), !is.na(Year)) %>% 
   right_join(dict_TTC_turf) %>%
-  select(-species, -cover, -pleuro, -acro, -litter, -presence, -new, -recorder) %>% 
+  select(-species, -cover, -pleuro, -acro, -litter, -presence, -turfID.new, -recorder) %>% 
   distinct()
 
 ttcs17 <- composition %>% 
   filter(Treatment == "C", Year == 2017) %>% 
   right_join(dict_TTC_turf) %>%
-  select(-new, -cover, -presence, -species) %>% 
+  select(-turfID.new, -cover, -presence, -species) %>% 
   distinct() %>% 
   full_join(scBryo, by = "turfID", suffix = c(".old", "")) %>% 
   select(-totalBryophytes.old, -mossHeight.old, -vegetationHeight.old, -TTtreat.old, -litter)
@@ -222,7 +231,9 @@ sampling_year <- comp2 %>%
   arrange(turfID, Year) %>% 
   mutate(sampling = 1:n())
 
-missingCov <- comp2 %>% group_by(turfID, species, Treatment) %>% filter(!is.na(presence) & is.na(cover)) %>% 
+missingCov <- comp2 %>% 
+  group_by(turfID, species, Treatment) %>% 
+  filter(!is.na(presence) & is.na(cover)) %>% 
   select(siteID, blockID, turfID, Year, species, Treatment)
 
 # covers interpolated from cover in year before/after
@@ -256,8 +267,8 @@ comp2 <- comp2 %>%
   select(-cover.new) %>% 
   left_join(misCovSpp2, by = c("siteID", "blockID", "Treatment", "turfID", "species", "Year"), suffix = c("", ".new")) %>% 
   mutate(cover = coalesce(cover.new, cover)) %>% 
-  select(-cover.new, -presence) %>% 
-  filter(cover > 0)
+  select(-cover.new, -presence, -turfID.new) %>% 
+  filter(!is.na(cover))
 
 # rejoin funcab attributes of the TTCs in 2016 and 2017
 comp2 <- comp2 %>% 
@@ -274,15 +285,16 @@ comp2 <- comp2 %>%
          totalBryophytes = coalesce(totalBryophytes.new, totalBryophytes),
          totalGraminoids = coalesce(totalGraminoids.new, totalGraminoids),
          totalForbs = coalesce(totalForbs.new, totalForbs)) %>% 
-  select(-totalBryophytes.new, -vegetationHeight.new, -mossHeight.new, -totalForbs.new, -totalGraminoids.new, -TTtreat, -new)
+  select(-totalBryophytes.new, -vegetationHeight.new, -mossHeight.new, -totalForbs.new, -totalGraminoids.new, -TTtreat)
 
 comp2 <- comp2 %>% 
+  full_join(FGBs) %>% 
   group_by(turfID, Year) %>% 
-  mutate(acro = case_when(is.na(acro) ~ 0,
+  mutate(acro = case_when(!is.na(pleuro) & is.na(acro) ~ 0,
                           TRUE ~ acro),
-         pleuro = case_when(is.na(pleuro) ~ 0,
+         pleuro = case_when(!is.na(acro) & is.na(pleuro) ~ 0,
                           TRUE ~ pleuro),
-         totalBryophytes = if_else(is.na(totalBryophytes) & !is.na(pleuro) & !is.na(acro), pleuro + acro, totalBryophytes)) %>% 
+         totalBryophytes = if_else(is.na(totalBryophytes), pleuro + acro, totalBryophytes)) %>% 
   ungroup() %>% 
   mutate(turfID = if_else(grepl("TTC", turfID), turfID, substring(turfID, 4, n())),
          Treatment = gsub(" ", "", Treatment),
@@ -312,7 +324,7 @@ comp2 <- comp2 %>%
   mutate(sumcover = sum(cover))
 
 # find turfs where FG covers missed
-comp2 <- comp2 %>% 
+comp24 <- comp2 %>% 
   gather(totalGraminoids, totalForbs, key = totFunctionalGroup, value = totCov) %>% 
   group_by(turfID, functionalGroup, Year) %>% 
   mutate(totCov = if_else(is.na(totCov), sumcover, totCov)) %>% 
@@ -328,9 +340,13 @@ comp2 <- comp2 %>%
     turfID == 'Alr5G' & Year == 2017 ~ 17.5,
     turfID == 'Fau2F' & Year == 2017 ~ 4,
     turfID == 'Alr1C' & Year == 2017 ~ 15,
+    turfID == 'Ulv2C' & Year == 2017 ~ 0,
+    turfID == 'Ovs1C' & Year == 2017 ~ 21, # mean of 2016 and 2018
     TRUE ~ mossHeight),
     vegetationHeight = case_when(
       turfID == 'Ulv3B' & Year == 2017 ~ 44.5,
+      turfID == 'Arh2FB' & Year == 2017 ~ 127.5,
+      turfID == 'Ovs1C' & Year == 2017 ~ 76.85, # mean of 2016 and 2018
       TRUE ~ vegetationHeight),
     totalBryophytes = case_when(
       turfID == 'Alr1F' & Year == 2015 ~ 0,
@@ -351,11 +367,10 @@ comp2 <- comp2 %>%
 
 #fix functional group discrepancies
 comp2 <- comp2 %>% 
+  ungroup() %>% 
   mutate(functionalGroup = if_else(species %in% c("Jun.sp", "Phl.sp", "Luz.tri"), "graminoid",
                                    if_else(species%in% c("Ped.pal", "Pop.tre", "Arenaria", "Pilosella"), "forb", functionalGroup))) %>%
-  filter(!is.na(cover)) %>% 
-  rename(forbCov = totalForbs, mossCov = totalBryophytes, graminoidCov = totalGraminoids) %>% 
-  bind_rows(FGBs %>% rename(forbCov = totalForbs, graminoidCov = totalGraminoids, mossCov = totalBryophytes))
+  rename(forbCov = totalForbs, mossCov = totalBryophytes, graminoidCov = totalGraminoids)
 
 # filter for  moss values from 2017
 mossHeight <- comp2 %>% 

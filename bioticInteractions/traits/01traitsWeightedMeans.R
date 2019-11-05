@@ -20,15 +20,15 @@ composition <- composition %>%
   mutate(richness = sum(n_distinct(species))) %>% 
   mutate(diversity = diversity(cover, index = "shannon")) %>% 
   mutate(evenness = (diversity/log(richness))) %>% 
-  filter(!is.na(cover)) %>%
+  #filter(!is.na(cover)) %>%
   group_by(turfID, siteID, Year, functionalGroup) %>% 
-  mutate(wmH = weighted.mean(Height_mean, cover, na.rm=TRUE),
-         wmSLA = weighted.mean(SLA_mean, cover, na.rm=TRUE),
-         wmLA = weighted.mean(LA_mean, cover, na.rm=TRUE),
-         wmLDMC = weighted.mean(LDMC_mean, cover, na.rm=TRUE),
-         wmLTH = weighted.mean(Lth_mean, cover, na.rm=TRUE),
-         wmCN = weighted.mean(CN_mean, cover, na.rm=TRUE)) %>% 
-  filter(Treatment%in%c("FB", "GB")) %>% 
+  mutate(wmH = weighted.mean(Height_mean, cover, na.rm = TRUE),
+         wmSLA = weighted.mean(SLA_mean, cover, na.rm = TRUE),
+         wmLA = weighted.mean(LA_mean, cover, na.rm = TRUE),
+         wmLDMC = weighted.mean(LDMC_mean, cover, na.rm = TRUE),
+         wmLTH = weighted.mean(Lth_mean, cover, na.rm = TRUE),
+         wmCN = weighted.mean(CN_mean, cover, na.rm = TRUE)) %>% # to here for compensation analysis
+  filter(Treatment %in% c("FB", "GB")) %>% 
   filter(!(functionalGroup == "forb" & Treatment == "FB"), !(functionalGroup == "graminoid" & Treatment == "GB"))
   select(-Height_mean, -LA_mean, -SLA_mean, -LTH_mean, -LDMC_mean, -CN_mean, -TTtreat, -species, -cover) %>% 
   distinct(turfID, Year, functionalGroup, .keep_all = TRUE) %>% 
@@ -40,8 +40,8 @@ composition <- composition %>%
   ungroup()
 
 save(composition, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedVegComp.RData")
-  
-  
+
+
 composition %>% left_join(weather) %>% 
   filter(Year == 2015) %>% 
   ggplot(aes(x = wmLA, fill = functionalGroup)) + 

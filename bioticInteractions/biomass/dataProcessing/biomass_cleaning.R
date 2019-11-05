@@ -15,60 +15,37 @@ biomass <- bind_rows(bio15, bio16, bio17, bio18) %>%
   left_join(dict_Site, by = c("Site" = "v2")) %>% 
   mutate(siteID = new) %>% 
   select(-Site, -old, -v3, -new) %>% 
-  group_by(Year, siteID, Treatment, Removed_FG) %>% 
+  group_by(Year, siteID, Block, Treatment, Removed_FG) %>% 
   summarise(Biomass = mean(Biomass, na.rm = TRUE)) %>% 
   left_join(weather) %>% 
   ungroup() %>% 
   mutate(Year = as.numeric(substr(Year, 3,4)),
-         Temperature = factor(tempLevel, levels = c(6.5, 8.5, 10.5), labels = c("Alpine", "Sub-alpine", "Boreal")))
-
-biomass %>% ggplot(aes(x = Year, y = Biomass, colour = Treatment, linetype = Temperature)) +
-  geom_line(size = 0.8) +
-  facet_grid(precipLevel ~ Removed_FG) +
-  theme_classic() +
-  scale_color_viridis_d() +
-  axis.dim +
-  labs(y = "Mean biomass removed (g)")
-
-ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/supfig7.jpg", dpi = 300, height = 9, width = 8)
-
-funCov <- comp2 %>% filter(Treatment == "C") %>% 
-  left_join(weather) %>%
-  group_by(tempLevel, precipLevel, Year) %>% 
-  summarise(mossCov = mean(mossCov, na.rm = TRUE),
-            graminoidCov = mean(graminoidCov, na.rm = TRUE),
-            forbCov = mean(forbCov, na.rm = TRUE)
-  )
-
-funCov %>% 
-  gather(mossCov, graminoidCov, forbCov, key = FG, value = cov) %>% ggplot(aes(x = Year, y = cov, colour = FG)) + 
-  stat_summary(fun.data = "mean_cl_boot") + 
-  stat_summary(fun.data = "mean_cl_boot", geom = "line") + 
-  facet_grid(.~precipLevel)
-
-funCov %>% 
-  gather(mossCov, graminoidCov, forbCov, key = FG, value = cov) %>% ggplot(aes(x = Year, y = cov, colour = FG)) + 
-  stat_summary(fun.data = "mean_cl_boot") + 
-  stat_summary(fun.data = "mean_cl_boot", geom = "line") + 
-  facet_grid(.~tempLevel)
-
-biomass <- bio15 %>%
-  filter(!Treatment %in% c("RTC", "RTC2nd")) %>% 
-  left_join(dict_Site, by = c("Site" = "old")) %>% 
-  select(-c(Site, Round, Year, v2, v3), "siteID" = new, "blockID" = Block, "turfID" = TurfID, "functionalGroup" = Func_group)
+         Temperature = factor(tempLevel, levels = c(6.5, 8.5, 10.5), labels = c("Alpine", "Sub-alpine", "Boreal"))) %>%
+  filter(!Treatment %in% c("RTC", "RTC2nd"))
 
 # vegetation data
 comp2 <- comp2 %>% 
   filter(!is.na(Treatment), !Treatment == "XC")
 
 # FIX THIS!!!
-# set covers and heights to zero in removed plots
-comp2 <- comp2 %>% 
-  mutate(mossCov = if_else(grepl("B", Treatment) & Year > 2015, 0, mossCov),
-         forbCov = if_else(grepl("F", Treatment) & Year > 2015, 0, forbCov),
-         graminoidCov = if_else(grepl("G", Treatment) & Year > 2015, 0, graminoidCov),
-         vegetationHeight = if_else(Treatment == "FGB" & Year > 2015, 0, vegetationHeight),
-         mossHeight = if_else(Treatment == "FGB" & Year > 2015, 0, mossHeight))
+# set covers and heights to NA in removed plots
+comp201718 <- comp2 %>% 
+  filter(Year > 2015) %>%
+  mutate(mossCov = case_when(
+    grepl("B", Treatment) ~ NA_real_,
+    TRUE ~ mossCov),
+    forbCov = case_when(
+      grepl("F", Treatment) ~ NA_real_, 
+      TRUE ~ forbCov),
+    graminoidCov = case_when(
+      grepl("G", Treatment) ~ NA_real_, 
+      TRUE ~ graminoidCov),
+    vegetationHeight = case_when(
+      Treatment == "FGB" ~ NA_real_, 
+      TRUE ~ vegetationHeight),
+    mossHeight = case_when(
+      Treatment == "FGB" ~ NA_real_, 
+      TRUE ~ mossHeight))
 
 composition2015 <- comp2 %>% 
   filter(Year == 2015) %>% 
@@ -90,33 +67,35 @@ biomassComp <- composition2015 %>%
 # align naming conventions among vegetation and biomass datasets
 # join biomass data to composition data
 biomassReg <- biomass %>% 
-  mutate(blockID = as.character(if_else(siteID == "Gudmedalen", recode(blockID, "1" = 5, "2" = 12, "3" = 13, "4" = 15), blockID)),
+  mutate(blockID = as.character(if_else(siteID == "Gudmedalen", recode(Block, "1" = 5, "2" = 12, "3" = 13, "4" = 15), Block)),
+         Treatment = if_else(Treatment == "FG", "GF", Treatment),
+         turfID = paste0(substr(siteID, 1, 3), Block, Treatment),
          turfID = if_else(siteID == "Gudmedalen", paste0(substr(siteID, 1, 3), blockID, Treatment), turfID),
          turfID = recode(turfID, "Alr4FGB" = "Alr5C"),
-         functionalGroup = recode(functionalGroup, "B" = "bryophyte", "G" = "graminoid", "F" = "forb")) %>% 
-  left_join(composition2015)
+         functionalGroup = recode(Removed_FG, "B" = "bryophyte", "G" = "graminoid", "F" = "forb")) %>% 
+  left_join(biomassComp)
 
 # turn biomass from g to g/m^2
 biomassReg <- biomassReg %>% 
-  mutate(Biomass_gm = Biomass_g/0.0625) 
+  mutate(Biomass_gm = Biomass/0.0625) 
 
 # run and extract regressions for each Functional group with zero intercept
 # forb
 forbRegCoef <- biomassReg %>% 
   filter(functionalGroup == "forb") %>% 
-  lm(Biomass_gm ~ 0 + forbCov:vegetationHeight, data = .)
+  lm(Biomass_gm ~ 0 + covValue:vegetationHeight, data = .)
 forbRegCoef <- tidy(forbRegCoef)
 
 # graminoid
 gramRegCoef <- biomassReg %>% 
   filter(functionalGroup == "graminoid") %>% 
-  lm(Biomass_gm ~ 0 + graminoidCov:vegetationHeight, data = .)
+  lm(Biomass_gm ~ 0 + covValue:vegetationHeight, data = .)
 gramRegCoef <- tidy(gramRegCoef)
 
 # moss
 mossRegCoef <- biomassReg %>% 
   filter(functionalGroup == "bryophyte") %>% 
-  lm(Biomass_gm ~ 0 + mossCov:mossHeight, data = .)
+  lm(Biomass_gm ~ 0 + covValue:mossHeight, data = .)
 mossRegCoef <- tidy(mossRegCoef)
 
 # bind model estimates together
@@ -126,7 +105,7 @@ regCoef <- bind_rows("forb" = forbRegCoef, "graminoid" = gramRegCoef, "bryophyte
 
 
 biomassReg <- biomassReg %>% 
-  select(-functionalGroup, - Biomass_g, -Biomass_gm, -litter) %>% 
+  select(-functionalGroup, - Biomass, -Biomass_gm, -litter) %>% 
   full_join(composition2015 %>% select(-litter)) %>% 
   group_by(siteID, blockID, turfID, Treatment) %>% 
   mutate(forbBiomass = forbCov*vegetationHeight*regCoef$forb,
@@ -134,4 +113,3 @@ biomassReg <- biomassReg %>%
          mossBiomass = mossCov*mossHeight*regCoef$bryophyte) %>% 
   distinct() %>% 
   select(blockID, Treatment, turfID, siteID, forbBiomass, graminoidBiomass, mossBiomass, forbCov, graminoidCov, mossCov, vegetationHeight, mossHeight)
-

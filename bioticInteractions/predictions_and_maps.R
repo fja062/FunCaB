@@ -130,7 +130,7 @@ square = data.frame(x = c(4.5, 9, 9, 4.5),
 
 # plot China map
 border <- map_data("world") %>% 
-  filter(region == "Norway")
+  filter(region %in% c("Norway", "Sweden", "Finland"))
 
 norgeKart <- ggplot() +
   #geom_raster(data = elev.china.df, aes(x=x, y=y, fill = alt)) +
@@ -139,7 +139,7 @@ norgeKart <- ggplot() +
   scale_x_continuous(expand = c(0,0), limits = c(3, 31)) +
   scale_y_continuous(expand = c(0,0), limits = c(58, 71.5)) +
   coord_quickmap() +
-  scale_fill_manual(limits=c("Norway", "Sweden"), values = c("grey90", "grey96")) + 
+  scale_fill_manual(limits=c("Norway", "Sweden", "Finland"), values = c("grey90", "grey96", "grey98")) + 
   labs(x = "", y = "") +
   theme_map(base_family = "Helvetica") +
   theme(axis.text=element_blank(),
@@ -150,7 +150,7 @@ norgeKart <- ggplot() +
 #theme_map(base_size = 10) +
 #theme(legend.position = c(0,1), legend.justification = c(0,1))
 
-ggsave(norgeKart, filename = "norgeKart.png", dpi = 300, path = "/Users/fja062/Documents/seedclimComm/figures", height = 5, width = 4, bg = "transparent") # bg = transparent so that the plot background is see-through
+ggsave(norgeKart, filename = "norgeKart.png", dpi = 300, path = "~/OneDrive - University of Bergen/Research/FunCaB/thesis", height = 5, width = 4, bg = "transparent") # bg = transparent so that the plot background is see-through
 
 maps <- plot_grid(climMap, norgeKart, nrow = 1, rel_widths = c(2,0.5))
 

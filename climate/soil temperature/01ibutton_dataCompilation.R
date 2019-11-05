@@ -2,11 +2,9 @@
 library(lubridate)
 
 #source biomass and composition
-source("~/Documents/SeedClim-Climate-Data/funcab/vegetation/00funcab_data_processing.R")
-#source("~/OneDrive - University of Bergen/Research/FunCaB/SeedClim-Climate-Data/funcab/vegetation/00funcab_data_processing.R")
+source("~/Documents/FunCaB/bioticInteractions/composition/dataProcessing/00funcab_data_processing.R")
 
-source("~/Documents/SeedClim-Climate-Data/funcab/vegetation/biomass_cleaning.R")
-#source("~/OneDrive - University of Bergen/Research/FunCaB/SeedClim-Climate-Data/funcab/vegetation/biomass_cleaning.R")
+source("~/Documents/FunCaB/bioticInteractions/biomass/dataProcessing/biomass_cleaning.R")
 
 # load soil temperature data
 load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/soilTemp.RData")
@@ -56,16 +54,32 @@ vegComp <- soilTemp  %>%
   distinct(siteID, turfID, blockID, Treatment, date, sunniness, TOD, meanTemp, .keep_all = TRUE) %>% 
   filter(TOD == "day")
 
-# turn covers to zero where FG has been removed
+# turn covers to NA where FG has been removed
 vegComp <- vegComp %>% 
-  mutate(forbBiomass = if_else(Treatment %in% c("F", "FB", "GF", "FGB"), 0, forbBiomass),
-         graminoidBiomass = if_else(Treatment %in% c("G", "GF", "GB", "FGB"), 0, graminoidBiomass),
-         mossBiomass = if_else(Treatment %in% c("B", "GB", "FB", "FGB"), 0, mossBiomass),
-         forbCov = if_else(Treatment %in% c("F", "FB", "GF", "FGB"), 0, forbCov),
-         graminoidCov = if_else(Treatment %in% c("G", "GF", "GB", "FGB"), 0, graminoidCov),
-         mossCov = if_else(Treatment %in% c("B", "GB", "FB", "FGB"), 0, mossCov),
-         mossHeight = if_else(Treatment %in% c("B", "GB", "FB", "FGB"), 0, mossHeight),
-         vegetationHeight = if_else(Treatment %in% c("GF", "FGB"), 0, vegetationHeight))
+  mutate(forbBiomass = case_when(
+    grepl("F", Treatment) ~ NA_real_,
+    TRUE ~ forbBiomass),
+    graminoidBiomass = case_when(
+      grepl("G", Treatment) ~ NA_real_,
+      TRUE ~ graminoidBiomass),
+    mossBiomass = case_when(
+      grepl("B", Treatment) ~ NA_real_,
+      TRUE ~ mossBiomass),
+    forbCov = case_when(
+      grepl("F", Treatment) ~ NA_real_,
+      TRUE ~ forbCov),
+    graminoidCov = case_when(
+      grepl("G", Treatment) ~ NA_real_,
+      TRUE ~ graminoidCov),
+    mossCov = case_when(
+      grepl("B", Treatment) ~ NA_real_,
+      TRUE ~ mossCov),
+    mossHeight = case_when(
+      grepl("B", Treatment) ~ NA_real_,
+      TRUE ~ mossHeight),
+    vegetationHeight = case_when(
+      Treatment %in% c("GF", "FGB") ~ NA_real_,
+      TRUE ~ vegetationHeight))
 
 # categorise weather and filter for summer months
 vegComp <- vegComp %>% 
