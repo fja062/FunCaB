@@ -44,28 +44,24 @@ soilTemp <- soilTempPlot %>%
             minTemp = min(Value),
             magTemp = (maxTemp - minTemp)) %>% 
   ungroup()
+# use if using biomass
+#vegComp <- biomassReg %>% 
+#  ungroup()
 
-biomassReg <- biomassReg %>% 
-  ungroup()
+# use this if only using cover
+vegCov <- comp2 %>% 
+  filter(!Treatment == "XC", Year == 2015) %>% 
+  distinct(siteID, blockID, Treatment, turfID, graminoidCov, forbCov, mossCov, functionalGroup, sumcover)
   
 vegComp <- soilTemp  %>%
-  left_join(biomassReg) %>%
+  left_join(vegCov) %>%
   group_by(turfID) %>% 
   distinct(siteID, turfID, blockID, Treatment, date, sunniness, TOD, meanTemp, .keep_all = TRUE) %>% 
   filter(TOD == "day")
 
 # turn covers to NA where FG has been removed
 vegComp <- vegComp %>% 
-  mutate(forbBiomass = case_when(
-    grepl("F", Treatment) ~ NA_real_,
-    TRUE ~ forbBiomass),
-    graminoidBiomass = case_when(
-      grepl("G", Treatment) ~ NA_real_,
-      TRUE ~ graminoidBiomass),
-    mossBiomass = case_when(
-      grepl("B", Treatment) ~ NA_real_,
-      TRUE ~ mossBiomass),
-    forbCov = case_when(
+  mutate(forbCov = case_when(
       grepl("F", Treatment) ~ NA_real_,
       TRUE ~ forbCov),
     graminoidCov = case_when(
@@ -73,13 +69,7 @@ vegComp <- vegComp %>%
       TRUE ~ graminoidCov),
     mossCov = case_when(
       grepl("B", Treatment) ~ NA_real_,
-      TRUE ~ mossCov),
-    mossHeight = case_when(
-      grepl("B", Treatment) ~ NA_real_,
-      TRUE ~ mossHeight),
-    vegetationHeight = case_when(
-      Treatment %in% c("GF", "FGB") ~ NA_real_,
-      TRUE ~ vegetationHeight))
+      TRUE ~ mossCov))
 
 # categorise weather and filter for summer months
 vegComp <- vegComp %>% 
@@ -139,14 +129,21 @@ Cover <- maxmin %>%
          sTemp70 = scale(temp7010, scale = FALSE, center = TRUE),
          sPrecip70 = scale((precip7010/1000), scale = FALSE, center = TRUE),
          ssunniness = scale(sunniness),
-         sforbBiomass = scale(forbBiomass, scale = FALSE, center = TRUE),
-         smossBiomass = scale(mossBiomass, scale = FALSE, center = TRUE),
-         sgraminoidBiomass = scale(graminoidBiomass, scale = FALSE, center = TRUE),
          sforbCov = scale(forbCov, scale = FALSE, center = TRUE),
          smossCov = scale(mossCov, scale = FALSE, center = TRUE),
-         sgraminoidCov = scale(graminoidCov, scale = FALSE, center = TRUE),
-         svegetationHeight = scale(vegetationHeight, scale = FALSE, center = TRUE),
-         smossHeight = scale(mossHeight, scale = FALSE, center = TRUE))
+         sgraminoidCov = scale(graminoidCov, scale = FALSE, center = TRUE))
 
+
+CoverSingles <- Cover %>% 
+  group_by(siteID, blockID, date) %>% 
+  filter(Treatment %in% c("aFGB", "FB", "GF", "GB")) %>% 
+  spread(key = Treatment, value = maxTemp) %>%
+  pivot_longer(c("FB", "GB", "GF"), names_to = "Treatment", values_to = "maxTemp") %>% 
+  mutate(maxTempDelta = maxTemp - aFGB)
+
+CoverDoubles <- Cover %>% 
+  filter(Treatment %in% c("FB", "GF", "GB", "F", "G", "B")) %>% 
+  spread(key = Treatment, value = maxTemp) %>%
+  mutate(maxTempDelta = maxTemp - aFGB)
 
 save(Cover, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedSoilTemp.RData")

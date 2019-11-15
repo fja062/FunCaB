@@ -16,11 +16,11 @@ comp2 <- comp2 %>%
 
 # set covers and heights to zero in removed plots
 community_cover <- comp2 %>% 
-  mutate(mossCov = if_else(grepl("B", Treatment) & Year > 2015, 0, mossCov),
-         forbCov = if_else(grepl("F", Treatment) & Year > 2015, 0, forbCov),
-         graminoidCov = if_else(grepl("G", Treatment) & Year > 2015, 0, graminoidCov),
-         vegetationHeight = if_else(Treatment == "FGB" & Year > 2015, 0, vegetationHeight),
-         mossHeight = if_else(Treatment == "FGB" & Year > 2015, 0, mossHeight))
+  mutate(mossCov = if_else(grepl("B", Treatment), 0, mossCov),
+         forbCov = if_else(grepl("F", Treatment), 0, forbCov),
+         graminoidCov = if_else(grepl("G", Treatment), 0, graminoidCov),
+         vegetationHeight = if_else(Treatment == "FGB", 0, vegetationHeight),
+         mossHeight = if_else(Treatment == "FGB", 0, mossHeight))
 
 # filter out spp covers in wrong removal plots
 community_FD <- community_FD %>% 
@@ -192,7 +192,8 @@ source("~/Documents/FunCaB/figures/plotting_dim.R")
 
 g <- community_FDWM %>% 
   filter(!Treatment == "GF",
-         !grepl("Wvar", trait)) %>%
+         trait %in% c("sumcover", "richness", "evenness", "Wmean_Height", "Wmean_SLA", "Wmean_N", "Wmean_Lth"),
+         !precipLevel == 2000) %>%
  # mutate(Treatment = case_when(
  #  Treatment == "FB" ~ "G",
  #  Treatment == "GB" ~ "F"
@@ -203,9 +204,11 @@ g <- community_FDWM %>%
   ggplot(aes(x = factor(tempLevel), y = factor(precipLevel), fill = scaleAnom)) +
   geom_tile() +
   scale_fill_gradient2(low = pal1[3], mid = "snow1", high = pal1[4]) +
-  facet_grid(trait~char*Treatment*functionalGroup, scales = "free")
+  facet_grid(trait~char*Treatment*functionalGroup, scales = "free") +
+  theme_cowplot() +
+  labs(x = "Temperature (ºC)", y = "Precipitation (mm/yr)", legend_title = "Anomaly")
 
-ggsave(g, filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 3/figures/fig1PCA.jpg", dpi = 300, height = 4, width = 8)
+ggsave(g, filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 3/figures/fig1.jpg", dpi = 300, height = 9, width = 9)
 
 
 

@@ -236,6 +236,29 @@ missingCov <- comp2 %>%
   filter(!is.na(presence) & is.na(cover)) %>% 
   select(siteID, blockID, turfID, Year, species, Treatment)
 
+
+comp2 %>% group_by(turfID, Treatment) %>% 
+  filter(is.na(totalGraminoids) & Treatment %in% c("F", "B", "FB", "C")) %>% 
+  distinct(siteID, blockID, turfID, Year, Treatment, totalGraminoids) %>% 
+  left_join(sampling_year) %>% 
+  left_join(
+    left_join(filter(comp2, !is.na(totalGraminoids)), sampling_year),
+    by = c("turfID"), 
+    suffix = c("", "_cover")) %>% #join to other years
+  distinct(siteID, blockID, turfID, Year, Treatment_cover, Year_cover, Treatment, totalGraminoids, sampling, sampling_cover) %>% 
+  filter(abs(sampling - sampling_cover) == 1) %>% #next/previous year
+  group_by(siteID, blockID, Treatment, turfID, Year) %>% 
+  filter(n() == 2) %>% #need before and after year
+  summarise(totalGraminoids = mean(totalGraminoids), flag = "Subturf w/o cover. Imputed as mean of adjacent years")
+
+missingForbCov <- comp2 %>% group_by(turfID, Treatment) %>% 
+  filter(is.na(totalForbs) & Treatment %in% c("G", "B", "GB", "C")) %>% 
+  distinct(siteID, blockID, turfID, Year, Treatment, totalForbs)
+
+missingMossCov <- comp2 %>% group_by(turfID, Treatment) %>% 
+  filter(is.na(totalBryophytes) & Treatment %in% c("G", "F", "GF", "C")) %>% 
+  distinct(siteID, blockID, turfID, Year, Treatment, totalBryophytes)
+
 # covers interpolated from cover in year before/after
 missingCov <- missingCov %>% 
   left_join(sampling_year) %>% 
@@ -320,6 +343,8 @@ comp2 <- comp2 %>%
 
 # sum of covers
 comp2 <- comp2 %>% 
+  mutate(functionalGroup = if_else(species %in% c("Jun.sp", "Phl.sp", "Luz.tri"), "graminoid",
+                                   if_else(species%in% c("Ped.pal", "Pop.tre", "Ste.als", "Ste.sp", "Porub", "Arenaria", "Pilosella"), "forb", functionalGroup))) %>%
   group_by(turfID, Year, functionalGroup) %>%
   mutate(sumcover = sum(cover))
 
@@ -365,11 +390,9 @@ comp2 <- comp2 %>%
       TRUE ~ totalGraminoids))
 
 
-#fix functional group discrepancies
+# fix functional group discrepancies
 comp2 <- comp2 %>% 
   ungroup() %>% 
-  mutate(functionalGroup = if_else(species %in% c("Jun.sp", "Phl.sp", "Luz.tri"), "graminoid",
-                                   if_else(species%in% c("Ped.pal", "Pop.tre", "Arenaria", "Pilosella"), "forb", functionalGroup))) %>%
   rename(forbCov = totalForbs, mossCov = totalBryophytes, graminoidCov = totalGraminoids)
 
 # filter for  moss values from 2017
@@ -382,8 +405,23 @@ mossHeight <- comp2 %>%
 
 # remove unwanted columns
 comp2 <- comp2 %>% 
-  select(-acro, -pleuro)
+  select(-acro, -pleuro) %>% 
+  mutate(graminoidCov = case_when(
+    turfID == "Fau1C" & Year == 2017 & species == "Hol.lan" ~ 70,
+    turfID == "Fau2C" & Year == 2017 & species == "Hol.lan" ~ 60,
+    turfID == "Vik5C" & Year == 2017 & species == "Hol.lan" ~ 45,
+    TRUE ~ graminoidCov
+  ),
+  forbCov = case_when(
+    turfID == "Fau1C" & Year == 2017 & species == "Hol.lan" ~ 70,
+    turfID == "Fau2C" & Year == 2017 & species == "Hol.lan" ~ 25,
+    turfID == "Vik5C" & Year == 2017 & species == "Hol.lan" ~ 60,
+    TRUE ~ forbCov)
+  )
 
+comp2 <- comp2 %>% distinct(siteID, blockID,Treatment,turfID, Year,graminoidCov,forbCov,mossCov,vegetationHeight,mossHeight,litter,cover,species,functionalGroup,sumcover)
+
+save(comp2, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/vegData191114.RData")
 
 # add climate info
 source("~/Documents/FunCaB/climate/weather.R")
