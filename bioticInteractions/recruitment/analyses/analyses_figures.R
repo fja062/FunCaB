@@ -218,8 +218,10 @@ survival %>% filter(tot > 0) %>%
 
 ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig2b.jpg", width = 9, height = 3.5, dpi = 300)
 
+
+### figure for paper 4
 datSurv %>% 
-  filter(Treatment %in% c("Intact", "Gap", "F", "G", "B")) %>% 
+  #filter(Treatment %in% c("Intact", "Gap", "F", "G", "B")) %>% 
   ggplot(aes(x = tempLevel, y = survival, lty = Treatment, shape = Treatment, colour = Treatment)) +
   geom_point(position = position_jitter(width = 0.2), aes(size = tot), shape = 21, fill = "grey80", alpha = 0.4) +
   stat_summary(fun.data = "mean_cl_boot", geom = "line", size = 1.3, position = position_dodge(width = 0.25)) +

@@ -54,7 +54,9 @@ nbGlmerAb %>%
 
 #### Bayesian analysis ####
 # i) set up a model matrix to feed directly into the model. This avoids potential coding errors. -1 removes the intercept, which I set separately so it can be drawn from a normal distribution.
-matab.t <- model.matrix(~ monthN + Treatment + tAnom + pAnom + tAnom:Treatment + pAnom:Treatment + stemp7010 + sprecip7010, data = abdat)[,-1]
+matab.t <- model.matrix(~ monthN + Treatment + tAnom + pAnom + tAnom:Treatment + pAnom:Treatment + monthN:pAnom:Treatment + monthN:tAnom:Treatment + stemp7010 + sprecip7010, data = abdat)[,-1]
+
+##########~~~~~~~~ interactions with seasonality???  
 
 # fake data for predictions
 abdatY <- crossing(Treatment = unique(abdat$Treatment), # rep is slowest on inside
@@ -68,7 +70,7 @@ abdatY <- crossing(Treatment = unique(abdat$Treatment), # rep is slowest on insi
 abdatY
 
 # model matrix for fake data predictions
-matab.tY <- model.matrix(~ monthN + Treatment + tAnom + pAnom + tAnom:Treatment + pAnom:Treatment + stemp7010 + precip7010, data = abdatY)
+matab.tY <- model.matrix(~ monthN + Treatment + tAnom + pAnom + tAnom:Treatment + pAnom:Treatment + monthN:pAnom:Treatment + monthN:tAnom:Treatment + stemp7010 + precip7010, data = abdatY)
 # remove intercept
 matab.tY <- matab.tY[,-1]
 
@@ -193,10 +195,14 @@ modCoefPlot <- AbundtAnom.mod$BUGSoutput$summary %>%
     term == "monthNaut" ~ "Autumn",
     term == "tAnom" ~ "t∆",
     term == "pAnom" ~ "SM∆",
+    term == "monthNaut:TreatmentGap:tAnom" ~ "Autumn:Gap:t∆",
+    term == "monthNaut:TreatmentGap:pAnom" ~ "Autumn:Gap:SM∆",
+    term == "monthNaut:TreatmentIntact:tAnom" ~ "Autumn:Intact:t∆",
+    term == "monthNaut:TreatmentIntact:pAnom" ~ "Autumn:Intact:SM∆",
     term == "TreatmentGap:tAnom" ~ "Gap:t∆",
     term == "TreatmentGap:pAnom" ~ "Gap:SM∆"
     ),
-  term = factor(term, levels = rev(c("Gap", "t∆", "Gap:t∆", "SM∆", "Gap:SM∆", "Autumn", "t", "P"))))
+  term = factor(term, levels = rev(c("Gap", "t∆", "Gap:t∆", "SM∆", "Gap:SM∆", "Autumn","Autumn:Gap:t∆", "Autumn:Gap:SM∆", "Autumn:Intact:t∆", "Autumn:Intact:SM∆", "t", "P"))))
 
 
 
@@ -208,7 +214,8 @@ modCoefPlot %>% ggplot(aes(x = mean, y = term)) +
   geom_hline(yintercept = c(3.5, 5.5, 7.5), colour = "grey80", size = 0.4) +
   xlab("Effect size") +
   theme(axis.title.y = element_blank()) +
-  axis.dimLarge
+  axis.dimLarge +
+  theme_cowplot()
 
 ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 4/figures/fig7.jpg", dpi = 300, height = 5, width = 5)
 

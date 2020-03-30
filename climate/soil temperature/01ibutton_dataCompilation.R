@@ -60,16 +60,16 @@ vegComp <- soilTemp  %>%
   filter(TOD == "day")
 
 # turn covers to NA where FG has been removed
-vegComp <- vegComp %>% 
-  mutate(forbCov = case_when(
-      grepl("F", Treatment) ~ NA_real_,
-      TRUE ~ forbCov),
-    graminoidCov = case_when(
-      grepl("G", Treatment) ~ NA_real_,
-      TRUE ~ graminoidCov),
-    mossCov = case_when(
-      grepl("B", Treatment) ~ NA_real_,
-      TRUE ~ mossCov))
+#vegComp <- vegComp %>% 
+#  mutate(forbCov = case_when(
+#      grepl("F", Treatment) ~ NA_real_,
+#      TRUE ~ forbCov),
+#    graminoidCov = case_when(
+#      grepl("G", Treatment) ~ NA_real_,
+#      TRUE ~ graminoidCov),
+#    mossCov = case_when(
+#      grepl("B", Treatment) ~ NA_real_,
+#      TRUE ~ mossCov))
 
 # categorise weather and filter for summer months
 vegComp <- vegComp %>% 

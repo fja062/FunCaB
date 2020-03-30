@@ -160,25 +160,26 @@ fig1MapPred <- plot_grid(maps, predsGath, nrow = 2, rel_widths = c(1.5, 0.7))
 ggsave(fig1MapPred, filename = "fig1MapPreds_v3.jpg", height = 7, width = 13, dpi = 300, path = "/Users/fja062/Documents/seedclimComm/figures")
 
 
-
+install.packages('mapproj')
 
 #### map of Europe ####
 mapworld <- map_data("world")
 mapworld %>% 
   ggplot() +
+  theme_cowplot() +
   #geom_raster(data = elev.china.df, aes(x=x, y=y, fill = alt)) +
-  geom_map(aes(map_id = region, fill = region), map = mapworld, color = "grey70", fill = "grey90") +
-  scale_x_continuous(expand = c(0,0), limits = c(-10, 50)) +
-  scale_y_continuous(expand = c(0,0), limits = c(40, 72)) +
-  coord_quickmap() +
+  geom_map(aes(map_id = region, fill = region), map = mapworld, color = "grey50", fill = "grey90") +
+  scale_x_continuous(expand = c(0,0), limits = c(-26, 50)) +
+  scale_y_continuous(expand = c(0,0), limits = c(38, 81)) +
+  coord_map(projection = "gilbert") +
   labs(x = "", y = "") +
-  theme_map(base_family = "Helvetica") +
+  #theme_map(base_family = "Helvetica") +
   theme(axis.text=element_blank(),
         legend.position = "none",
         axis.ticks = element_blank(),
         axis.line = element_blank(),
-        plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-  ggsave(filename = "~/Documents/seedclimComm/figures/mapEurope.jpg")
+        plot.margin = unit(c(0, 0, 0, 0), "cm")) 
+  ggsave(filename = "~/OneDrive - University of Bergen/applications&proposals/2020/mapEurope.jpg", width = 11, height = 10, dpi = 300)
 
 # climate space map
 x <- comp2 %>% 

@@ -147,9 +147,11 @@ survModt$BUGSoutput$summary %>%
   ggplot(aes(x = precip7010, y = mean, ymax = `97.5%`, ymin = `2.5%`, fill = factor(temp7010))) +
   geom_ribbon(alpha = 0.2) +
   geom_line(aes(colour = factor(temp7010))) +
+  #geom_point(aes()) +
   facet_wrap(~Treatment)+
   scale_color_brewer(palette = "Dark2") +
-  scale_fill_brewer(palette = "Dark2")
+  scale_fill_brewer(palette = "Dark2") +
+  theme_cowplot()
 
 
 # coefficients plot

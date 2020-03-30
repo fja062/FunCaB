@@ -22,51 +22,45 @@ stDat <- Cover %>%
   gather(forbCov, graminoidCov, mossCov, key = functionalGroup, value = cover) %>% 
   filter(weather %in% c("sunny", "cloudy"),
          !is.na(cover)) %>% 
-  bind_rows(fgbs) %>% 
   mutate(stempLevel = as.vector(scale(tempLevel, scale = FALSE, center =TRUE)),
          stemp7010 = as.vector(scale(temp7010, scale = FALSE, center =TRUE)),
          precipDiv7010 = precip7010/1000,
          sprecip7010 = as.vector(scale(precipDiv7010, scale = FALSE, center =TRUE)),
          precipDiv = precipLevel/1000,
          sprecipLevel = as.vector(scale(precipDiv, scale = FALSE, center = TRUE)),
-         
-         #sCover = as.vector(scale(cover, scale = FALSE, center = TRUE))
+         sCover = as.vector(scale(cover, scale = FALSE, center = TRUE))
          ) %>% 
-  filter(weather == "sunny",
-         Treatment %in% c("aFGB", "GB", "GF", "FB")) %>% 
-  spread(value = cover,key = functionalGroup)
+  filter(weather == "sunny"#,
+         #Treatment %in% c("aFGB", "GB", "GF", "FB")
+         )
+
+
+lmMod1 <- lmer(maxTemp ~ sCover*functionalGroup*Treatment + (1|siteID), data = stDat)
 
 
 #### Bayesian analysis ####
 # i) set up a model matrix to feed directly into the model. This avoids potential coding errors. -1 removes the intercept, which I set separately so it can be drawn from a normal distribution.
 
-soilTempModMat <- model.matrix(~ sforbCov + sgraminoidCov + smossCov + stemp7010 + sprecip7010, data = stDat)[,-1]
+soilTempModMat <- model.matrix(~ sCover*Treatment*functionalGroup + stemp7010 + sprecip7010, data = stDat)[,-1]
 
 
-stDatY <- crossing(#Treatment = unique(stDat$Treatment),
-                   #functionalGroup = unique(stDat$functionalGroup),
+stDatY <- crossing(Treatment = unique(stDat$Treatment),
                    precip7010 = mean(stDat$precip7010),
                    temp7010 = mean(stDat$temp7010),
-                   mossCov = unique(stDat$mossCov),
-                   graminoidCov = unique(stDat$graminoidCov),
-                   #cover = seq(min(stDat$cover) + 1, max(stDat$cover) - 1, length = 4)
-                   forbCov = unique(stDat$forbCov)
+                   sCover = seq(min(stDat$sCover) + 1, max(stDat$sCover) - 1, length = 50),
+                   functionalGroup = unique(stDat$functionalGroup)
                    ) %>%
   mutate(stemp7010 = as.vector(scale(temp7010, scale = FALSE, center = TRUE
   )),
   precipDiv7010 = precip7010/1000,
   sprecip7010 = as.vector(scale(precipDiv7010, scale = FALSE, center = TRUE
-  )),
-  #sCover = as.vector(scale(cover, scale = FALSE, center = TRUE))
-  sforbCov = as.vector(scale(forbCov, scale = FALSE, center = TRUE)),
-  smossCov = as.vector(scale(mossCov, scale = FALSE, center = TRUE)),
-  sgraminoidCov = as.vector(scale(graminoidCov, scale = FALSE, center = TRUE))
+  ))
   )
 
 stDatY
 
 # model matrix for fake data predictions
-soilTempModMatY <- model.matrix(~ smossCov + sforbCov + sgraminoidCov + stemp7010 + sprecip7010, data = stDatY)
+soilTempModMatY <- model.matrix(~ sCover*Treatment*functionalGroup + stemp7010 + sprecip7010, data = stDatY)
 
 # remove intercept
 soilTempModMatY <- soilTempModMatY[,-1]
@@ -127,7 +121,7 @@ abDat <- list(y = stDat$maxTemp,
 AbundtAnom.mod <- jags(
   model.file = "~/Documents/FunCaB/analyses/soilTempMaxTemp.txt",
   data = abDat,
-  n.iter = 8000,
+  n.iter = 5000,
   n.chains = 3,
   parameters.to.save = paraNames.ab,
   progress.bar = "text"
@@ -193,6 +187,7 @@ AbundtAnom.mod$BUGSoutput$summary %>%
   geom_point(data = stDat, aes(y = maxTemp, x = sprecip7010, colour = Treatment), shape = 21, alpha = 0.4) +
   geom_ribbon(alpha = 0.2, aes(ymax = `97.5%`, ymin = `2.5%`, fill = Treatment)) +
   geom_line(aes(colour = Treatment)) +
-  scale_color_manual(values = c("grey60", "Black")) +
-  scale_fill_manual(values = c("grey60", "Black")) +
-  theme_classic() 
+  #scale_color_manual(values = c("grey60", "Black")) +
+  #scale_fill_manual(values = c("grey60", "Black")) +
+  theme_classic() +
+  facet_wrap(.~Treatment)
