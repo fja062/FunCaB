@@ -2,11 +2,11 @@
 library(lme4)
 library(MuMIn)
 library(broom)
+source("~/Documents/FunCaB/figures/plotting_dim.R")
 
 # prepare data
 forbcomAnalysis <- forbcom %>% 
-  gather(c(richness:wmeanCN, cwvLDMC:cwvCN), key = "trait", value = "value") %>% 
-  select(-c(cwsdLDMC:cwsdCN))
+  gather(c(richness:wmeanCN, cwvLDMC:cwvCN), key = "trait", value = "value")
 
 # Scaling explanatory variables
 # relevel treatment so that TTC is the intercept

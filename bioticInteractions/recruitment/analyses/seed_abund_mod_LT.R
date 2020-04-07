@@ -43,7 +43,7 @@ testZeroInflation(simOut)
 summary(nbGlmerAb)
 
 nbGlmerAb %>%
-  tidy()  %>% 
+  tidy() %>% 
   mutate(lower = (estimate - std.error*1.96),
          upper = (estimate + std.error*1.96))%>% 
   ggplot(aes(x = estimate, y = term, xmin = lower, xmax = upper)) +

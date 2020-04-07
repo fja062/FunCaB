@@ -12,12 +12,12 @@ con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seed
 #con <- src_mysql(group = "seedclim", dbname = "seedclimComm", password = "password")
 
 #source joining dictionaries
-source("~/OneDrive - University of Bergen/Research/FunCaB/SeedClim-Climate-Data/funcab/dictionaries.R")
+source("~/Documents/FunCaB/dictionaries.R")
 
 #~~~~~~~~~~ Cover data ~~~~~~~~~~#
 ## ---- my.GR.data.import ---- 
 
-problems <- read.csv("~/OneDrive - University of Bergen/Research/FunCaB/Data/speciesCorrections.csv", sep = ";", stringsAsFactors = FALSE) %>%
+problems <- read.csv("~/OneDrive - University of Bergen/Research/FunCaB/Data/dictionaries&corrections/speciesCorrections.csv", sep = ";", stringsAsFactors = FALSE) %>%
   filter(!old %in% c("Vio.can", "Com.ten", "Sel.sel")) %>%
   filter(cover != "WHAT HAPPENED") %>%
   mutate(cover = as.numeric(cover))
@@ -97,7 +97,7 @@ my.GR.data$cover[owen.fix] <- my.GR.data$cover[owen.fix]/1.5
 
 
 #gridded temperature etc
-source("inst/graminoidRemovals/weather.R")
+source("climate/weather.R")
 #save(weather, file = "~/Desktop/weather.Rdata")
 
 my.GR.data <- my.GR.data %>%
@@ -119,7 +119,7 @@ my.GR.data %>% filter(turfID %in% c("Ovs2RTC", "Ovs3RTC", "126 TTC"), functional
 ## ---- Traits.data.import ---- 
 
 # source Ragnhild's trait data
-source("~/OneDrive - University of Bergen/Research/FunCaB/SeedclimComm/inst/graminoidRemovals/gramRem_load-traits.R")
+source("~/Documents/SeedclimComm/gramRem_load-traits.R")
 
 #load from data base
 traits <- tbl(con, "numeric_traits") %>% 
@@ -255,6 +255,7 @@ timedeltacalc <- as.data.frame(t(timedeltacalc))
 colnames(timedeltacalc) <- paste0("delta", colnames(timedeltacalc))
 timedelta <- cbind((forbcom[forbcom$Year != 2011,]), timedeltacalc)
 
+save(my.GR.data.FERT, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/gramRemFert_dataDoc_FJ_SLO.RData")
 
 
 ### ------------------- data for Siri ----------------------###

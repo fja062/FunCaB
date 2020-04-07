@@ -449,3 +449,23 @@ modMN %>% filter(Year == 2016) %>%
   axis.dimLarge
 
 #ggsave(tempPrecip2016, filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 1/figures/tempPrecip2016.jpg", dpi = 300, height = 4.5, width = 16)
+
+
+wholecom %>% filter(Year == 2011) %>% 
+  ggplot(aes(x = factor(precipLevel), y = sumcover, fill = functionalGroup)) + geom_boxplot() + theme_classic() + 
+  facet_grid(.~tempLevel) + 
+  scale_fill_manual(values = c("grey40", "grey80")) + 
+  axis.dimLarge
+
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 1/figures/supFig1.jpg", dpi = 300, height = 4.5, width = 10)
+
+wholecom %>% 
+  filter(functionalGroup %in% c("forb", "woody", "pteridophyte"), Year == 2011) %>% 
+  ggplot(aes(x = factor(precipLevel), y = sumcover, fill = functionalGroup)) + 
+  geom_boxplot() + 
+  theme_classic() +
+  facet_grid(.~tempLevel) + 
+  scale_fill_manual(values = c("grey40", "grey70", "grey90")) +
+  axis.dimLarge
+
+ggsave(filename = "~/OneDrive - University of Bergen/Research/FunCaB/paper 1/figures/supFig4.jpg", dpi = 300, height = 4.5, width = 10)

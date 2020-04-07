@@ -169,9 +169,10 @@ mapworld %>%
   theme_cowplot() +
   #geom_raster(data = elev.china.df, aes(x=x, y=y, fill = alt)) +
   geom_map(aes(map_id = region, fill = region), map = mapworld, color = "grey50", fill = "grey90") +
-  scale_x_continuous(expand = c(0,0), limits = c(-26, 50)) +
-  scale_y_continuous(expand = c(0,0), limits = c(38, 81)) +
-  coord_map(projection = "gilbert") +
+  scale_x_continuous(expand = c(0,0), limits = c(-5.7, 30)) +
+  scale_y_continuous(expand = c(0,0), limits = c(42, 72)) +
+  #coord_map(projection = "gilbert") +
+  theme_map() +
   labs(x = "", y = "") +
   #theme_map(base_family = "Helvetica") +
   theme(axis.text=element_blank(),

@@ -60,29 +60,29 @@ ggsave(delta, width = 11, height = 4.5, dpi = 300, filename = "~/OneDrive - Univ
 
 
 abund <- my.GR.data %>% 
-  filter(functionalGroup == "forb", temp > 10, TTtreat == "RTC") %>% 
+  filter(functionalGroup == "forb", temp7010 > 10, TTtreat == "RTC") %>% 
   group_by(siteID, Year, species) %>% 
   mutate(meanCov = mean(cover)) %>% 
   ungroup() %>% 
-  group_by(precip, species) %>%
+  group_by(precipLevel, species) %>%
   mutate(dominance = case_when(
-    precip == "2700" & mean(meanCov) > 16 ~ "dominant",
-    precip == "2000" & mean(meanCov) > 16 ~ "dominant",
-    precip == "1200" & mean(meanCov) > 16 ~ "dominant",
-    precip == "600" & mean(meanCov) > 16 ~ "dominant",
-    precip == "2700" & mean(meanCov) < 16 ~ "subordinate",
-    precip == "2000" & mean(meanCov) < 16 ~ "subordinate",
-    precip == "1200" & mean(meanCov) < 16 ~ "subordinate",
-    precip == "600" & mean(meanCov)  < 16 ~ "subordinate"
+    precipLevel == "2700" & mean(meanCov) > 16 ~ "dominant",
+    precipLevel == "2000" & mean(meanCov) > 16 ~ "dominant",
+    precipLevel == "1200" & mean(meanCov) > 16 ~ "dominant",
+    precipLevel == "600" & mean(meanCov) > 16 ~ "dominant",
+    precipLevel == "2700" & mean(meanCov) < 16 ~ "subordinate",
+    precipLevel == "2000" & mean(meanCov) < 16 ~ "subordinate",
+    precipLevel == "1200" & mean(meanCov) < 16 ~ "subordinate",
+    precipLevel == "600" & mean(meanCov)  < 16 ~ "subordinate"
   )) %>% 
   #mutate(dominance = if_else(mean(meanCov, na.rm = TRUE) > 15, "dominant", "subordinate")) %>% 
   mutate(label = if_else(Year == 2016 & dominance == "dominant", as.character(species), NA_character_))
 
 
-lm1 <- lm(meanCov ~ species + precip + 0, data = abund) %>% 
+lm1 <- lm(meanCov ~ species + precipLevel + 0, data = abund) %>% 
   tidy() %>% 
   mutate(term = gsub("species", "", term)) %>% 
-  filter(!term == "precip")
+  filter(!term == "precipLevel")
 
 summary(lm1)
 
@@ -96,7 +96,7 @@ abund %>%
              nudge_y = -2.45,
              na.rm = TRUE) +
   scale_colour_manual(values = c("Black", "grey80")) +
-  facet_grid(. ~ precip) +
+  facet_grid(. ~ precipLevel) +
   geom_point(size = 3) +
   labs(y = "Mean cover (%)") +
   axis.dimLarge +
