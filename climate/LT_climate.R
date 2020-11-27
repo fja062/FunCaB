@@ -1,3 +1,7 @@
+# load packages
+require(lubridate)
+
+# source dictionaries and data
 source("~/Documents/FunCaB/dictionaries.R")
 
 load("~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/climate.Rdata")
@@ -65,6 +69,16 @@ mSubClimPlot <- mSubClim %>%
 
 
 
+AnnualLTtemp <- LTtemp %>% mutate(month = month(date)) %>% 
+  filter(month %in% c(6,7,8,9)) %>% 
+  group_by(siteID) %>% 
+  summarise(LTval = mean(value)) %>% ungroup()
+
+AnnualLTprecip <- LTprecip %>% mutate(month = month(date)) %>% 
+  filter(month %in% c(6,7,8,9)) %>%  
+  group_by(siteID) %>% 
+  summarise(LTPval = mean(value)) %>% ungroup()
+
 LTtemp <- LTtemp %>% mutate(month = month(date),
                   monthN = if_else(month %in% c(6,7), "spr",
                                    if_else(month %in% c(8,9), "aut", NULL))) %>% 
@@ -81,8 +95,8 @@ LTprecip <- LTprecip %>% mutate(month = month(date),
   summarise(value = mean(value)) %>% 
   select(LTPval = value, monthN, siteID)
 
-## monthly temp anomalies
 
+## monthly temp anomalies
 soilM <- mSubClim %>% filter(logger %in% c("jordf1", "jordf2")) %>% 
   group_by(date, siteID) %>% 
   summarise(soilM = mean(value, na.rm = TRUE))
@@ -100,7 +114,7 @@ sm2018 <- SM2018 %>%
            siteID == "Skjellingahaugen" ~ "aut"
          ))
 
-
+# calculate monthly averages for drought and non-drought conditions
 monthAv <- mSubClim %>%
   filter(logger == "temp200cm") %>%
   rename(soilT = value) %>% 
@@ -123,3 +137,23 @@ monthAv <- mSubClim %>%
   select(monthN, year, siteID, tAnom, pAnom, soilT, soilM)
 
 
+# calculate summer averages
+AnnualMonthAv <- mSubClim %>%
+  filter(logger == "temp200cm") %>%
+  rename(soilT = value) %>% 
+  left_join(soilM) %>% 
+  gather(soilM, soilT, key = logger, value = value) %>% 
+  mutate(month = month(date)) %>% 
+  filter(month %in% c(6,7,8,9)) %>% 
+  group_by(year, siteID, logger) %>% 
+  summarise(value = mean(value, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  spread(key = logger, value = value) %>% 
+  left_join(AnnualLTtemp) %>% 
+  left_join(AnnualLTprecip) %>% 
+  mutate(tAnom = soilT - LTval,
+         pAnom = soilM - LTPval) %>% 
+  select(year, siteID, tAnom, pAnom, soilT, soilM)
+
+
+#save(AnnualMonthAv, file = "~/Documents/FunCaB/climate/data/AnnualMonthAv.RData")
