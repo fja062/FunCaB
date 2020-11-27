@@ -1,11 +1,11 @@
 #################################################################
-#Script for paper on effect of graminoid removal on plant community properties
+# Script to process community data associated with Graminoid removal Ecography MS
 #################################################################
 
 library(tidyverse)
 library(DBI)
 library(dbplyr)
-library(SDMTools)
+#library(SDMTools)
 library(RSQLite)
 
 con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seedclim.sqlite", create = FALSE)
@@ -97,18 +97,28 @@ my.GR.data$cover[owen.fix] <- my.GR.data$cover[owen.fix]/1.5
 
 
 #gridded temperature etc
-source("climate/weather.R")
-#save(weather, file = "~/Desktop/weather.Rdata")
+load(file = "~/Documents/FunCaB/climate/data/AnnualMonthAv.RData")
+source("~/Documents/FunCaB/climate/weather.R")
+
 
 my.GR.data <- my.GR.data %>%
+  left_join(AnnualMonthAv %>% rename(Year = year), by = c("siteID", "Year")) %>% 
   left_join(weather, by = "siteID") %>% 
   ungroup()
 
 
 #### code to get rid of turfs that have been attacked by ants or cows ####
-lowcover <- my.GR.data %>% group_by(turfID, Year, functionalGroup) %>% mutate(sumcover = sum(cover)) %>% filter(sumcover < 25) %>% distinct(siteID, turfID,Year,sumcover)
+lowcover <- my.GR.data %>% 
+  group_by(turfID, Year, functionalGroup) %>% 
+  mutate(sumcover = sum(cover)) %>% 
+  filter(sumcover < 25) %>% 
+  distinct(siteID, turfID,Year,sumcover)
 
-my.GR.data %>% filter(turfID %in% c("Ovs2RTC", "Ovs3RTC", "126 TTC"), functionalGroup == "forb") %>% group_by(turfID, Year) %>% mutate(sumcover = sum(cover)) %>% distinct(siteID, turfID,Year, sumcover)
+my.GR.data %>% 
+  filter(turfID %in% c("Ovs2RTC", "Ovs3RTC", "126 TTC"), functionalGroup == "forb") %>% 
+  group_by(turfID, Year) %>% 
+  mutate(sumcover = sum(cover)) %>% 
+  distinct(siteID, turfID,Year, sumcover)
 
 #my.GR.data <- filter(my.GR.data, !siteID %in% c("Ovs2RTC", "Ovs3RTC"))
 ## ---- my.GR.data.end ----
@@ -176,6 +186,17 @@ my.GR.data <- my.GR.data %>%
 ## ---- Community.mean.weighting ---- 
 
 ###### weighted means for whole community, grouped by functional group and year
+# hadley wickham's bigvis package
+weighted.var <- function(x, w = NULL, na.rm = FALSE) {
+  if (na.rm) {
+    na <- is.na(x) | is.na(w)
+    x <- x[!na]
+    w <- w[!na]
+  }
+  
+  sum(w * (x - weighted.mean(x, w)) ^ 2) / (sum(w) - 1)
+}
+
 wholecom <- my.GR.data %>% 
   group_by(ID, functionalGroup) %>% 
   mutate(sumcover = sum(cover),
@@ -185,26 +206,21 @@ wholecom <- my.GR.data %>%
          wmeanLA = weighted.mean(LA_mean, cover, na.rm = TRUE),
          wmeanheight = weighted.mean(Height_mean, cover, na.rm = TRUE),
          wmeanCN = weighted.mean(CN_mean, cover, na.rm = TRUE),
-         cwvLDMC = wt.var(LDMC_mean, wt = cover),
-         cwvSLA = wt.var(SLA_mean, wt = cover),
-         cwvLTH = wt.var(Lth_mean, wt = cover),
-         cwvLA = wt.var(LA_mean, wt = cover),
-         cwvheight = wt.var(Height_mean, wt = cover),
-         cwvCN = wt.var(CN_mean, wt = cover),
-         cwsdLDMC = wt.sd(LDMC_mean, wt = cover),
-         cwsdSLA = wt.sd(SLA_mean, wt = cover),
-         cwsdLTH = wt.sd(Lth_mean, wt = cover),
-         cwsdLA = wt.sd(LA_mean, wt = cover),
-         cwsdheight = wt.sd(Height_mean, wt = cover),
-         cwsdCN = wt.sd(CN_mean, wt = cover)) %>% 
+         wmeanN = weighted.mean(N_mean, cover, na.rm = TRUE),
+         cwvLDMC = weighted.var(LDMC_mean, cover),
+         cwvSLA = weighted.var(SLA_mean, cover),
+         cwvLTH = weighted.var(Lth_mean, cover),
+         cwvLA = weighted.var(LA_mean, cover),
+         cwvheight = weighted.var(Height_mean, cover),
+         cwvN = weighted.var(N_mean, cover)) %>% 
   ungroup() %>%
-  mutate(funYear = as.factor(paste(functionalGroup, Year, sep = "_"))) %>% 
-  select(siteID, blockID, ID, c(turfID:Year), totalVascular:mossHeight, functionalGroup:precipLevel, richness:cwvCN) %>% 
+  mutate(funYear = as.factor(paste(functionalGroup, Year, sep = "_"))) %>%
+  select(siteID, blockID, ID, c(turfID:Year), totalVascular:mossHeight, soil, functionalGroup:precip7010, richness:cwvN) %>% 
   distinct(ID, functionalGroup, TTtreat, .keep_all = TRUE)
 
 # create forb-only data frame
 forbcom <- wholecom %>%
-  filter(functionalGroup == "forb") 
+  filter(!functionalGroup == "graminoid") 
 
 ## ---- Community.mean.weighting.end ---- 
 
@@ -217,7 +233,7 @@ forbcom <- wholecom %>%
 deltacalc <- sapply(1:nrow(forbcom[forbcom$TTtreat == "RTC",]), function(i){
   R <- forbcom[forbcom$TTtreat == "RTC",][i,]
   #browser()
-  cols <- c("sumcover", "diversity", "richness", "evenness", "wmeanLDMC", "wmeanSLA", "wmeanLTH", "wmeanLA", "wmeanheight", "wmeanCN", "cwvLDMC", "cwvSLA", "cwvLTH", "cwvLA", "cwvheight", "cwvCN")
+  cols <- c("sumcover", "diversity", "richness", "evenness", "wmeanLDMC", "wmeanSLA", "wmeanLTH", "wmeanLA", "wmeanheight", "wmeanCN", "wmeanN", "cwvLDMC", "cwvSLA", "cwvLTH", "cwvLA", "cwvheight", "cwvN")
   friend <- forbcom$Year == R$Year & forbcom$blockID == R$blockID & forbcom$functionalGroup == R$functionalGroup & forbcom$TTtreat == "TTC"
   if(all (!friend)) {print(R$turfID)
     return(rep(NA, length(cols)))}
@@ -232,12 +248,8 @@ colnames(deltacalc) <- paste0("delta", colnames(deltacalc))
 
 # bind to forb-only wmean data
 rtcmeta <- cbind((forbcom[forbcom$TTtreat == "RTC",]), deltacalc)
-rtcmeta$Year <- factor(rtcmeta$Year)
-#rtcmeta<-rtcmeta[rtcmeta$Year!=2011,]
-
 
 ######### CALCULATING TIME DELTA #######
-
 timedeltacalc <- sapply(1:nrow(forbcom[forbcom$Year != 2011,]), function(i){
  R <- forbcom[forbcom$Year != 2011,][i,]
    #browser()
@@ -255,23 +267,11 @@ timedeltacalc <- as.data.frame(t(timedeltacalc))
 colnames(timedeltacalc) <- paste0("delta", colnames(timedeltacalc))
 timedelta <- cbind((forbcom[forbcom$Year != 2011,]), timedeltacalc)
 
-save(my.GR.data.FERT, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/gramRemFert_dataDoc_FJ_SLO.RData")
 
 
-### ------------------- data for Siri ----------------------###
-#### --------------------- not run ----------------------- ####
-#my.GR.data.FERT <- tbl(con, "subTurfCommunity") %>% 
-#  collect() %>% 
-#  left_join(tbl(con, "taxon"), copy = TRUE) %>%
-#  left_join(tbl(con, "turfs"), copy = TRUE) %>%
-#  left_join(tbl(con, "plots"), by = c("destinationPlotID" = "plotID"), copy = TRUE) %>%
-#  left_join(tbl(con, "blocks"), by = "blockID", copy = TRUE) %>%
-#  left_join(tbl(con, "sites"), by = "siteID", copy = TRUE) %>%
-#  left_join(tbl(con, "turfEnvironment"), copy = TRUE) %>% 
-#  select(siteID, blockID, plotID = destinationPlotID, turfID, TTtreat, GRtreat, Year = year, species, seedlings, juvenile, adult, fertile, vegetative, Temperature_level, Precipitation_level, recorder, totalVascular, totalBryophytes, functionalGroup, vegetationHeight, mossHeight, litter, pleuro, acro, liver, lichen, soil, rock, totalLichen, comment, date) %>%
-#  mutate(TTtreat = factor(TTtreat), GRtreat = factor(GRtreat)) %>%
-#  ungroup() %>% 
-#  filter(Year > 2009, TTtreat == "TTC"|GRtreat == "RTC"|GRtreat == "TTC")
-
+# save files to data folders #
+##############################
 
 #save(my.GR.data.FERT, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/gramRemFert_dataDoc_FJ_SLO.RData")
+#save(rtcmeta, file = "~/Documents/FunCaB/bioticInteractions/composition/data/rtcmeta.RData")
+#save(wholecom, file = "~/Documents/FunCaB/bioticInteractions/composition/data/wholecom.RData")

@@ -17,7 +17,7 @@ siteID <- unique(ulv$siteID)
 #prec <- unique(ulv$prec)
 
 for (i in siteID) {
-  df <- filter(ulv, siteID == i) %>%
+  df <- filter(ulv, siteID == "Hogsete") %>%
     mutate(turfID = as.factor(turfID))
   
   spp <- xtabs(cover ~ ID + species, data = df)
@@ -38,6 +38,41 @@ for (i in siteID) {
   plots[[i]] <- p1 #add each plot to the empty list
 
 }
+modCov <- forbcomAnalysis %>% 
+  filter(trait == "deltasumcover") %>% 
+  nest(data = everything()) %>%
+  mutate(fit = map(data, ~ lmer(value ~ temp7010*Year + Sprecip7010 + (1|siteID/turfID) + (1|Year), REML = TRUE, data = .)),
+         results = map(fit, tidy, conf.int = TRUE)) %>%
+  unnest(results) %>% 
+  select(-data, -fit)
+
+# filter for forbs only
+forbs <- my.GR.data %>% ungroup() %>% 
+  filter(functionalGroup == "forb") %>% 
+  select(ID, species, cover) %>% 
+  pivot_wider(names_from = species, values_from = cover) %>% 
+  select(-ID)
+
+set.seed(32)
+
+NMDS <- metaMDS(comm = forbs, 
+                distance = "bray",
+                noshare = TRUE,
+                try = 30)
+
+forbs %>% #select(ID, siteID, species, cover) %>% 
+  select(Year, siteID, TTtreat, species, cover, ID) %>% 
+  pivot_wider(names_from = species, values_from = cover) %>% 
+  nest(data = -siteID) %>% 
+  mutate(year = map(data, ~select(., Year)),
+         year = map(year, as.factor),
+         Treat = map(data, ~select(., TTtreat)),
+         treat = map(Treat, as.factor),
+         species = map(data, ~select(., -Year,-TTtreat)),
+         prcMod = map(species, ~prc(., treatment = treat, time = year))
+         )
+
+
 
 gr <- gridExtra::arrangeGrob(grobs = plots)
 plot(gr)

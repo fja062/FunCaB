@@ -376,28 +376,32 @@ rtcmetaPlot <- rtcmeta %>%
                          if_else(grepl("cwv", trait), substr(trait, 4, n()), trait)))
 
 treatwmD <- rtcmetaPlot  %>%
-  filter(trait %in% c("SLA", "LTH", "CN", "height"), test == "Variance") %>%
+  filter(trait %in% c("SLA", "LTH", "CN", "height"), test == "Mean") %>%
   ggplot(aes(x = Year, y = measurement, colour = factor(tempLevel))) +
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), geom = "line", size = 0.75) +
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), shape = 1, geom = "point", size = 1.5) +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), geom = "line", size = 1) +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), shape = 1, geom = "point") +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), shape = 1, geom = "errorbar", alpha = 0.5) +
   scale_colour_manual("Mean summer\n temperature", values = pal1[c(3,5,4)]) +
   facet_wrap(~trait, scales = "free_y", nrow = 1) +
   labs(x = "", y = "") +
   geom_hline(yintercept = 0) +
+  theme_classic() +
   theme(strip.background = element_blank(), 
         axis.text.x = element_blank(), 
         axis.ticks.x = element_blank(),
         plot.margin = margin(unit(c(0, 0, 0, 0), "cm")))
 
 treatwmDprecip <- rtcmetaPlot %>% 
-  filter(trait %in% c("SLA", "LTH", "CN", "height"), test == "Variance") %>%
+  filter(trait %in% c("SLA", "LTH", "CN", "height"), test == "Mean") %>%
   ggplot(aes(x = Year, y = measurement, colour = factor(precipLevel))) +
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), geom = "line", size = 1) +
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), shape = 1, geom = "point") +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), geom = "line", size = 1) +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), shape = 1, geom = "point") +
+  stat_summary(fun.data = "mean_se", position = position_dodge(width = 0.6), shape = 1, geom = "errorbar", alpha = 0.5) +
   scale_colour_manual("Mean annual\n precipitation", values = c('#BF5C6A','#D8B772','#68AB82','#3E6E3F')) +
   facet_wrap(~trait, scales = "free_y", nrow = 1) +
   labs(x = "", y = "") +
   geom_hline(yintercept = 0) +
+  theme_classic() +
   theme(strip.background = element_blank(),
         strip.text = element_blank(),
         plot.margin = margin(unit(c(0, 0, 0, 0), "cm")))

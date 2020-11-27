@@ -23,10 +23,10 @@ cover_temp.orig <- timedelta %>%
   ggplot(aes(x = Year, y = deltasumcover, colour = TTtreat, shape = TTtreat, group = TTtreat)) +
     stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), size = 0.75) +
     stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), geom = "line", size = 0.75) +
-  scale_colour_manual(legend.title.climate, values = c("Black", "grey80"), labels = c("Removal", "Untreated")) +
+  scale_colour_manual(legend.title.climate, values = c("grey80", "black"), labels = c("Removal", "Untreated")) +
   geom_hline(yintercept = 0, linetype = "dashed") +
     facet_wrap(~ temp) +
-  scale_shape_manual(legend.title.climate, values = c(16, 1), labels = c( "Removal", "Untreated")) +
+  scale_shape_manual(legend.title.climate, values = c(1, 16), labels = c( "Removal", "Untreated")) +
   theme_classic() +
     labs(y = paste("Δ forb cover (%)")) +
   theme(legend.direction = "horizontal",
@@ -45,8 +45,8 @@ sla_temp.orig <- timedelta %>%
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.6), geom = "line", size = 0.75) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   facet_grid(. ~ temp) +
-  scale_colour_manual(legend.title.climate, values = c("Black", "grey80"), labels = c("Untreated", "Removal")) +
-  scale_shape_manual(legend.title.climate, values = c(16, 1), labels = c("Untreated", "Removal")) +
+  #scale_colour_manual(legend.title.climate, values = c("Black", "grey80"), labels = c("Untreated", "Removal")) +
+  #scale_shape_manual(legend.title.climate, values = c(16, 1), labels = c("Untreated", "Removal")) +
   theme_classic() +
   labs(y = paste("Δ diversity (Shannon)")) +
   theme(legend.position = "none",
@@ -60,20 +60,20 @@ ggsave(delta, width = 11, height = 4.5, dpi = 300, filename = "~/OneDrive - Univ
 
 
 abund <- my.GR.data %>% 
-  filter(functionalGroup == "forb", temp7010 > 10, TTtreat == "RTC") %>% 
+  filter(functionalGroup == "forb", temp7010 > 10, TTtreat == "RTC") %>%
   group_by(siteID, Year, species) %>% 
   mutate(meanCov = mean(cover)) %>% 
   ungroup() %>% 
   group_by(precipLevel, species) %>%
   mutate(dominance = case_when(
-    precipLevel == "2700" & mean(meanCov) > 16 ~ "dominant",
-    precipLevel == "2000" & mean(meanCov) > 16 ~ "dominant",
-    precipLevel == "1200" & mean(meanCov) > 16 ~ "dominant",
-    precipLevel == "600" & mean(meanCov) > 16 ~ "dominant",
-    precipLevel == "2700" & mean(meanCov) < 16 ~ "subordinate",
-    precipLevel == "2000" & mean(meanCov) < 16 ~ "subordinate",
-    precipLevel == "1200" & mean(meanCov) < 16 ~ "subordinate",
-    precipLevel == "600" & mean(meanCov)  < 16 ~ "subordinate"
+    precipLevel == "2700" & mean(meanCov) > 20 ~ "dominant",
+    precipLevel == "2000" & mean(meanCov) > 20 ~ "dominant",
+    precipLevel == "1200" & mean(meanCov) > 20 ~ "dominant",
+    precipLevel == "600" & mean(meanCov) >  20 ~ "dominant",
+    precipLevel == "2700" & mean(meanCov) < 20 ~ "subordinate",
+    precipLevel == "2000" & mean(meanCov) < 20 ~ "subordinate",
+    precipLevel == "1200" & mean(meanCov) < 20 ~ "subordinate",
+    precipLevel == "600" & mean(meanCov)  < 20 ~ "subordinate"
   )) %>% 
   #mutate(dominance = if_else(mean(meanCov, na.rm = TRUE) > 15, "dominant", "subordinate")) %>% 
   mutate(label = if_else(Year == 2016 & dominance == "dominant", as.character(species), NA_character_))
@@ -117,7 +117,7 @@ my.GR.data %>%
   facet_grid(.~precip) +
   axis.dimLarge +
   labs(x = "", y = "Moss depth (cm)") +
-  theme(axis.text.x  = element_text(angle = 90)) +
+  theme(axis.text.x  = element_text(angle = 90))
   ggsave(filename = "moss_depth_precip.jpg", path = "/Users/fja062/Documents/seedclimComm/figures", height = 4, width = 7.5)
 
 
@@ -130,13 +130,13 @@ my.GR.data %>%
   scale_shape_manual(legend.title.weat, values = c(1, 16), labels = c("Control", "Removal")) +
   axis.dimLarge +
   theme_classic() +
-  theme(axis.text.x  = element_text(angle = 90)) +
+  theme(axis.text.x  = element_text(angle = 90))
   ggsave(filename = "moss_coverPRECIP.jpg", width = 7.5, height = 4, path = "/Users/fja062/Documents/seedclimComm/figures")
 
 
 wholecom %>%
   filter(Year == 2011) %>% 
-  ggplot(aes(x = wmeanSLA_local, colour = as.factor(temp), fill = as.factor(temp), shape = as.factor(temp))) +
+  ggplot(aes(x = wmeanSLA, colour = as.factor(tempLevel), fill = as.factor(tempLevel), shape = as.factor(tempLevel))) +
 geom_density(alpha = 0.3)  +
   scale_colour_manual("Mean summer\ntemperature (°C)", values = cbPalette) +
   scale_fill_manual("Mean summer\ntemperature (°C)", values = cbPalette) +
@@ -147,30 +147,75 @@ geom_density(alpha = 0.3)  +
 
 ggsave(filename = paste0("figsupp1.jpg"), width = 11, height = 4.5, dpi = 300, path = "~/OneDrive - University of Bergen/Research/FunCaB/figures")
 
-rtcLDMC <- forbcom %>%
-  mutate(nYear = as.numeric(as.character(Year))) %>% 
-  filter(!is.na(wmeanLDMC_local))
+# Supplementary Figure 1
+# graminoid and non-graminoid plant cover
+wholecom %>% 
+  filter(Year == 2011) %>% 
+  ggplot(aes(x = factor(tempLevel), y = sumcover, fill = functionalGroup)) + 
+  geom_boxplot() + 
+  facet_grid(.~precipLevel, switch = "x") +
+  scale_fill_grey() + 
+  theme_classic() +
+  labs(y = "Average cover (%)", x = "Mean summer temperature (ªC) and mean annual precipitation (mm/yr)") +
+  axis.dim +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.9,0.9),
+        strip.placement = "outside",
+        strip.background = element_rect(colour = "white"))
 
-modLDMC <- rtcLDMC %>% 
-  lmer(wmeanLDMC_local ~ TTtreat*scale(summer_temp)*scale(annPrecip)*scale(nYear) - TTtreat*scale(summer_temp)*scale(annPrecip)*scale(nYear) + (1|siteID), REML = FALSE, data = .)
+ggsave(filename = "supFig1.jpg", width = 8, height = 4, dpi = 300, path = "~/OneDrive - University of Bergen/Research/FunCaB/paper 1/figures/")
 
-LDMCpred <- predict(modLDMC, newdata = LDMCnewDat)
+wholecom %>% 
+  select(functionalGroup, sumcover, Year, tempLevel, precipLevel, turfID) %>% 
+  pivot_wider(values_from = "sumcover", names_from = "functionalGroup") %>%
+  rowwise() %>% 
+  mutate(percentGram = (graminoid/(forb + graminoid))*100) %>% 
+  filter(Year == 2011) %>% 
+  ggplot(aes(x = factor(tempLevel), y = percentGram)) +
+  facet_grid(.~precipLevel, switch =  "x") +
+  geom_boxplot() +
+  scale_fill_grey() + 
+  theme_classic() +
+  labs(y = "Average cover (%)", x = "Mean summer temperature (ºC) and mean annual precipitation (mm/yr)") +
+  axis.dim +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.9,0.9),
+        strip.placement = "outside",
+        strip.background = element_rect(colour = "white"))
 
-rtcLDMC <- rtcLDMC %>% 
-  mutate(LDMCpredL = (LDMCpred - sqrt(wmeanLDMC_local)*1.96),
-         LDMCpredH = (LDMCpred + sqrt(wmeanLDMC_local)*1.96)) %>% 
-  group_by(Year, siteID, TTtreat) %>% 
-  mutate(mLDMCpredL = mean(LDMCpredL),
-         mLDMCpredH = mean(LDMCpredH))
-  
-rtcLDMC %>% 
-  #gather(deltawmeanCN_local,deltawmeanheight_local,deltawmeanLA_local,deltawmeanLDMC_local,deltawmeanLTH_local,deltawmeanSLA_local, key = "trait", value = "value") %>% 
-ggplot(aes(nYear, LDMCpred, colour = factor(temp), fill = factor(temp), group = factor(temp))) +
-  geom_point(aes(nYear, wmeanLDMC_local)) +
-  geom_line() +
-  #stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), geom = "line") +
-  geom_ribbon(aes(ymin = mLDMCpredL, ymax = mLDMCpredH), alpha=0.3) +
-  scale_color_viridis_d() +
-  scale_fill_viridis_d() +
-  #geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60", size = 1) #+
-  facet_wrap(. ~ TTtreat, scales = "free_y")
+
+# Supplementary Figure 2
+# average number of species per trait and per plot
+avSpN <- my.GR.data %>%
+  filter(functionalGroup == "forb") %>% 
+  gather(c(SLA_mean:N_mean), key = "trait", value = "value") %>% 
+  group_by(ID, trait) %>% 
+  mutate(nSpecies = n_distinct(species), nSpeciesWD = n_distinct(value, na.rm = TRUE),
+         nSpeciesWDperc = (nSpeciesWD/nSpecies)*100) %>% 
+  separate(trait, c("trait", "mean"), sep = "_") %>% 
+  select(-mean)
+
+avSpN %>% group_by(trait) %>% 
+  summarise(meanPercent = mean(nSpeciesWDperc),
+            minPercent = min(nSpeciesWDperc),
+            maxPercent = max(nSpeciesWDperc),
+            meanSpp = mean(nSpecies)) %>% 
+  ungroup()
+
+avSpN <- avSpN %>% group_by(tempLevel, precipLevel, trait) %>% 
+  summarise(meanPercent = mean(nSpeciesWDperc),
+            minPercent = min(nSpeciesWDperc),
+            maxPercent = max(nSpeciesWDperc),
+            meanSpp = mean(nSpecies)) %>% 
+  ungroup()
+
+
+
+avSpN %>% ggplot(aes(x = trait, y = meanPercent, fill = factor(tempLevel))) + 
+  geom_boxplot() +
+  scale_fill_grey() +
+  theme_classic() +
+  labs(y = "mean percentage of species with available trait data (%)") +
+  theme(axis.title.x = element_blank())
+
+ggsave(filename = "supFig2.jpg", width = 8, height = 4, dpi = 300, path = "~/OneDrive - University of Bergen/Research/FunCaB/paper 1/figures/")

@@ -1,30 +1,283 @@
-#load packages
-library(lme4)
-library(MuMIn)
-library(broom)
+# load packages and source plotting code
+library("tidyverse")
+library("lme4")
+library("broom.mixed")
+library("lmerTest")
+library(sjPlot)
+library(yhat)
+require(car)
+require(GGally)
 source("~/Documents/FunCaB/figures/plotting_dim.R")
 
+# load data
+load("~/Documents/FunCaB/bioticInteractions/composition/data/rtcmeta.RData")
+load("~/Documents/FunCaB/bioticInteractions/composition/data/wholecom.RData")
+
 # prepare data
-forbcomAnalysis <- forbcom %>% 
-  gather(c(richness:wmeanCN, cwvLDMC:cwvCN), key = "trait", value = "value")
+forbcomAnalysis <- rtcmeta %>% 
+  gather(c(deltasumcover:deltawmeanCN, deltacwvLDMC:deltacwvheight), key = "trait", value = "value") %>%
+  select(-c(richness:cwvN), - deltawmeanN, -deltacwvN) %>% 
+  tibble()
 
 # Scaling explanatory variables
-# relevel treatment so that TTC is the intercept
 forbcomAnalysis <- forbcomAnalysis %>% 
-  mutate(Sprecip0916 = as.numeric(scale(precip0916)),
-         Stemp0916 = as.numeric(scale(temp0916)),
-         SYear = as.numeric(scale(Year))) %>% 
-  mutate(TTtreat = factor(TTtreat, levels = c("TTC", "RTC"))) %>%
+  mutate(tempLevel = as.factor(tempLevel),
+         precipLevel = as.factor(precipLevel),
+         Sprecip7010 = as.factor(precip7010/100),
+         Year = as.numeric(as.character(Year))-2000) %>% 
   group_by(trait) %>% 
-  #mutate(value = if_else(trait == "richness", value, scale(value))) %>%
-  filter(is.finite(value))
+  filter(is.finite(value)) %>% 
+  ungroup()
+
+# test for collinearity
+forbcom %>% 
+  filter(siteID %in% c("Rambera", "Ovstedal", "Gudmedalen")) %>% 
+  select(c(wmeanheight, wmeanLTH, wmeanLDMC, wmeanSLA, tempLevel)) %>% 
+  GGally::ggpairs(mapping = aes(colour = factor(tempLevel)))
 
 
-# polynomial term for precipitation
-# poisson distribution for richness -> copy code from funcab analyses
+modCov <- lmer(value ~ tAnom*pAnom + (1|siteID/turfID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltasumcover"))
+  
+# sum cover
+modCov <- lmer(value ~ tempLevel*Year*precipLevel - tempLevel:precipLevel:Year - Year:precipLevel - tempLevel:precipLevel + (1|siteID/turfID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltasumcover"))
+
+anova(modCov)
+summary(modCov)
+
+modCov <- forbcomAnalysis %>% 
+  filter(trait == "deltasumcover") %>% 
+  nest(data = everything()) %>%
+  mutate(fit = map(data, ~ lmer(value ~ tempLevel*Year*precipLevel - tempLevel:precipLevel:Year - Year:precipLevel - tempLevel:precipLevel + (1|siteID/turfID), REML = TRUE, data = .)),
+         results = map(fit, tidy, conf.int = TRUE)) %>%
+  unnest(results) %>% 
+  select(-data, -fit)
+
+modCov
+plot_residuals(modCov)
+plot_model(modCov, type = "re")
+plot_model(modCov)
+
+forbcomAnalysis %>% 
+  filter(trait == "deltasumcover") %>% 
+  ggplot(aes(x = Year, y = value, colour = factor(tempLevel), fill = factor(tempLevel))) +
+  scale_colour_brewer(palette = "Accent") +
+  scale_fill_brewer(palette = "Accent") +
+  stat_summary(fun.data = "mean_se", geom = "point") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  facet_wrap(~tempLevel) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+# richness
+
+modRich <- lmerTest::lmer(value ~ tempLevel*Year*precipLevel - tempLevel:precipLevel:Year - tempLevel:precipLevel - precipLevel:Year - tempLevel:Year + (1|siteID/turfID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltarichness"))
+
+anova(modRich)
+summary(modRich)
+
+modRich <- forbcomAnalysis %>% 
+  filter(trait == "deltarichness") %>% 
+  nest(data = everything()) %>%
+    mutate(fit = map(data, ~ lmer(value ~ tempLevel + precipLevel + Year + (1|siteID/turfID) + (1|Year), REML = TRUE, data = .)),
+           results = map(fit, tidy, conf.int = TRUE)) %>%
+    unnest(results) %>% 
+    select(-data, -fit)
+
+plot_model(modRich, show.values = TRUE)
+plot_model(modRich, type = "re")
+plot_model(modRich, type = "pred", pred.type = "re")
+plot_residuals(modRich)
+
+# evenness
+modEv <- forbcomAnalysis %>% 
+  filter(trait == "deltaevenness") %>% 
+    nest(data = everything()) %>%
+    mutate(fit = map(data, ~ lmer(value ~ temp7010 + Sprecip7010 + (1|siteID/turfID) + (1|Year), REML = TRUE, data = .)),
+           results = map(fit, tidy, conf.int = TRUE)) %>%
+    unnest(results) %>% 
+    select(-data, -fit)
+  
+modEv <- lmerTest::lmer(value ~ tempLevel*Year*precipLevel - tempLevel:precipLevel:Year - tempLevel:precipLevel + (1|siteID/turfID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltaevenness"))
+
+anova(modEv)
+summary(modEv)
+
+plot_model(modEv, show.values = TRUE)
+plot_model(modEv, type = "re")
+plot_model(modEv, type = "pred")
+plot_residuals(modEv)
 
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# SLA
+modSLA <- forbcomAnalysis %>% 
+  filter(trait == "deltawmeanSLA") %>% 
+  nest(data = everything()) %>%
+    mutate(fit = map(data, ~ lmer(value ~ precipLevel*Year + (1|siteID/turfID), REML = TRUE, data = .)),
+           results = map(fit, tidy, conf.int = TRUE)) %>%
+    unnest(results) %>% 
+    select(-data, -fit)
+
+
+modSLA <- lmerTest::lmer(value ~ tempLevel*precipLevel*Year - tempLevel:precipLevel:Year - tempLevel:precipLevel - tempLevel:Year + (1|siteID/turfID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltawmeanSLA"))
+
+anova(modSLA)
+summary(modSLA)
+
+plot_model(modSLA, show.values = TRUE)
+plot_model(modSLA, type = "re")
+plot_model(modSLA, type = "pred")
+plot_residuals(modSLA)
+
+forbcomAnalysis %>% 
+  filter(trait == "deltawmeanSLA") %>% 
+  ggplot(aes(x = Year, y = value, colour = factor(precipLevel), fill = factor(precipLevel))) +
+  scale_colour_brewer(palette = "Accent") +
+  scale_fill_brewer(palette = "Accent") +
+  stat_summary(fun.data = "mean_se", geom = "point") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  facet_wrap(~precipLevel, scales = "free") +
+  theme_classic() +
+  theme(legend.position = "none")
+
+# LTH
+modLTH <- forbcomAnalysis %>% 
+  filter(trait == "deltawmeanLTH") %>% 
+  nest(data = everything()) %>%
+  mutate(fit = map(data, ~ lmer(value ~ temp7010+Sprecip7010+Year + (1|siteID), REML = TRUE, data = .)),
+         results = map(fit, tidy, conf.int = TRUE)) %>%
+  unnest(results) %>%
+  select(-data, -fit)
+modLTH
+
+forbcomAnalysis %>% 
+  filter(trait == "deltawmeanLTH") %>% 
+  ggplot(aes(x = Year, y = value)) +
+  scale_colour_brewer(palette = "Accent") +
+  scale_fill_brewer(palette = "Accent") +
+  stat_summary(fun.data = "mean_se", geom = "point") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  theme_classic()
+
+
+modLTH <- lmerTest::lmer(value ~ tempLevel*precipLevel*Year - tempLevel:precipLevel:Year - tempLevel:precipLevel - tempLevel:Year - precipLevel:Year + (1|siteID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltawmeanLTH"))
+
+anova(modLTH)
+summary(modLTH)
+
+plot_model(modLTH, show.values = TRUE)
+plot_model(modLTH, type = "re")
+plot_model(modLTH, type = "pred")
+plot_residuals(modLTH)
+
+
+# height
+modheight <- forbcomAnalysis %>% 
+  filter(trait == "deltawmeanheight") %>% 
+  nest(data = everything()) %>%
+  mutate(fit = map(data, ~ lmer(value ~ temp7010 + Sprecip7010 + Year + (1|siteID), REML = TRUE, data = .)),
+         results = map(fit, tidy, conf.int = TRUE)) %>%
+  unnest(results) %>%
+  select(-data, -fit)
+modheight
+
+forbcomAnalysis %>% 
+  filter(trait == "deltawmeanheight") %>% 
+  ggplot(aes(x = Year, y = value, colour = tempLevel)) +
+  scale_colour_brewer(palette = "Accent") +
+  scale_fill_brewer(palette = "Accent") +
+  stat_summary(fun.data = "mean_se", geom = "point") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  theme_classic() +
+  facet_wrap(~tempLevel)
+
+
+modheight <- lmerTest::lmer(value ~ tempLevel*precipLevel*Year - tempLevel:precipLevel:Year - precipLevel:Year - tempLevel:Year - tempLevel:precipLevel + (1|siteID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltawmeanheight"))
+
+anova(modheight)
+summary(modheight)
+
+plot_model(modheight, show.values = TRUE)
+plot_model(modheight, type = "re")
+plot_model(modheight, type = "pred")
+plot_residuals(modheight)
+
+# LDMC
+modLDMC <- forbcomAnalysis %>% 
+  filter(trait == "deltawmeanLDMC") %>% 
+  nest(data = everything()) %>%
+  mutate(fit = map(data, ~ lmer(value ~ temp7010 + Sprecip7010 + Year + (1|siteID), REML = TRUE, data = .)),
+         results = map(fit, tidy, conf.int = TRUE)) %>%
+  unnest(results) %>%
+  select(-data, -fit)
+
+forbcomAnalysis %>% 
+  filter(trait == "deltawmeanLDMC") %>% 
+  ggplot(aes(x = Year, y = value, colour = tempLevel)) +
+  scale_colour_brewer(palette = "Accent") +
+  scale_fill_brewer(palette = "Accent") +
+  stat_summary(fun.data = "mean_se", geom = "point") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  theme_classic() +
+  facet_wrap(~tempLevel)
+
+
+modLDMC <- lmerTest::lmer(value ~ tempLevel*precipLevel*Year - tempLevel:precipLevel:Year - tempLevel:precipLevel - tempLevel:Year - precipLevel:Year + (1|siteID), REML = TRUE, data = subset(forbcomAnalysis, trait == "deltawmeanLDMC"))
+
+anova(modLDMC)
+summary(modLDMC)
+
+plot_model(modLDMC, show.values = TRUE)
+plot_model(modLDMC, type = "re")
+plot_model(modLDMC, type = "pred")
+plot_residuals(modLDMC)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# minimum interesting effect size => variation across years in controls
+sim_lm <- function(n, delta, sd, ...){
+  # simulate means
+  mu <- rep(c(0, delta), each = n)
+  # add noise
+  y <- mu + rnorm(length(mu), sd = sd)
+  ## predictor
+  test <- crossing(year = c(1,2,3,4,5),
+                   temp = c(1,2,3,4,5,6,7,8,9,10,11,12),
+                   precip = c(11,12,13,14,15,16,17,18,19,20,21,22)
+  )  
+  # run test
+  test <- lm(y ~ temp*precip*year, data = test)
+  broom::glance(test)
+}
+
+sim_lm(n = 360, delta = 1, sd = 2)
+
+nrep = 100
+
+control <- crossing(rep_no = 1:nrep, n = seq(10, 100, 20)) 
+
+runs <- control %>%
+  pmap_df(~sim_lm(n = 360, delta = 1, sd = 2, nrep = nrep))  %>%
+  mutate(sig = p.value <= 0.05)
+
+p <- runs  %>%
+  group_by(term) %>%
+  summarise(power = mean(sig)) %>%
+  ggplot(aes(x = n, y = power)) +
+  geom_line() +
+  geom_point()
+
+runs %>%
+  filter(sig) %>%
+  ggplot(aes(x = n, y = estimate, group = n)) +
+  geom_hline(yintercept = -1, colour = "red") +
+  geom_violin(draw_quantiles = 0.5, fill = "grey50", alpha = 0.6)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 mod1temp <- forbcomAnalysis %>% 
   mutate(traitII = trait) %>%
   group_by(trait) %>%
@@ -44,7 +297,6 @@ mod1temp <- forbcomAnalysis %>%
   mutate(lower = (estimate - std.error*1.96),
          upper = (estimate + std.error*1.96)) %>% 
   ungroup()
-
 
 
 mod1temp <- mod1temp %>% 
@@ -110,4 +362,6 @@ coefEst <- mod1temp %>%
   theme(axis.text.y = element_text(colour = c("black", "black", "grey40", "grey40", "grey40", "grey40", "black", "black", "black", "black")))
   
 coefEst <- plot_grid(coefEst, labels = c("B                                                       C"), label_x = 0)
+
+
 
