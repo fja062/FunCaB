@@ -1,3 +1,5 @@
+# Testing for the effect of drought and plant functional groups on summer seedling mortality
+
 # load data
 load(file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedSurvData.RData")
 load(file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/soilMoisture2018.RData")
@@ -10,11 +12,12 @@ library("tidybayes")
 library("DHARMa")
 source("~/Documents/FunCaB/figures/plotting_dim.R")
 
+
 ## add temperature anomaly data!
 datSurv <- survival %>% 
   filter(Round == 1) %>%     # remove NAs otherwise model fails
   mutate(blockID = as.character(blockID)) %>% 
-  left_join(SM2018 %>% mutate(blockID = as.character(blockID), Treatment = if_else(grepl("C", Treatment), "aC", Treatment))) %>% 
+  left_join(SM2018 %>% mutate(Treatment = if_else(grepl("C", Treatment), "aC", Treatment))) %>% 
   mutate(Treatment = recode(Treatment,
                             "aC" = "Intact",
                             "B" = "GF",
@@ -30,6 +33,9 @@ datSurv <- as.data.frame(datSurv)
 
 
 # model matrix
+# survival ~ treatment + tAnom + smAnom + gridT + gridP + (1|siteID)
+
+
 matSurv.t <- model.matrix(~ Treatment*stemp7010*sprecip7010 - Treatment:stemp7010:sprecip7010, data = datSurv)[,-1]
 
 datSurvY <- crossing(Treatment = unique(datSurv$Treatment),
@@ -167,13 +173,7 @@ modCoefSurv <- survModt$BUGSoutput$summary %>%
     term = gsub("stemp7010", "t", term),
     term = gsub("sprecip7010", "P", term),
     term = gsub("FGB", "Gap", term),
-    term = gsub("GB", "F", term),
-    term = gsub("^B", "GF", term),
-    term = gsub("^G$", "FB", term),
-    term = gsub("^GF:", "FB:", term),
-    term = gsub("^GF:", "FB:", term),
-    term = gsub(":", " x ", term),
-    
+    term = gsub(":", " x ", term)
   )
 
 

@@ -213,7 +213,7 @@ rc_rtcSumAv <- rc_rtcSum %>%
          )
 
 
-
+monthAv %>% ggplot(aes(x = soilM, y = pAnom)) + geom_point() + geom_smooth(method = "lm") + geom_abline()
 
 
 save(rc_rtcSumAv, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedAbundData.RData")
