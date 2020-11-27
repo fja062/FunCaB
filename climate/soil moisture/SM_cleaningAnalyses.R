@@ -15,8 +15,8 @@ SM2018 <- read_excel("~/OneDrive - University of Bergen/Research/FunCaB/Data/pri
 #SM2017 <- read_excel(path = "/Volumes/fja062/PhD/Data/Soilmoisture2017.xlsx")
 load(file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/cleanedVegComp.RData")
 
-source("~/Documents/SeedClim-Climate-Data//funcab/dictionaries.R")
-source("~/Documents/SeedclimComm/inst/graminoidRemovals/weather.R")
+source("~/Documents/FunCaB/dictionaries.R")
+source("~/Documents/FunCaB/climate/weather.R")
 
 SM201516 <- SM201516 %>% 
   mutate_at(.vars = c("M1", "M2", "M3", "M4"), as.numeric) %>% 
@@ -66,6 +66,7 @@ SM2018 <- SM2018 %>%
          blockID = case_when(
            turfID == "Fau4C" ~ 4,
            turfID == "Ulv2C" ~ 2,
+           turfID == "Gud12C" ~ 12,
            TRUE ~ blockID
          )) %>%
   mutate(turfID = if_else(turfID %in% c("C", "B", "G", "F", "GF", "GB", "FB", "FGB"), paste0(substr(siteID, 1, 3), blockID, Treatment), turfID)) %>% 
@@ -74,7 +75,10 @@ SM2018 <- SM2018 %>%
 
 SM2018 <- SM2018 %>% 
   select(Date, turfID, blockID, Treatment, siteID, SM, tempLevel, precipLevel, Date) %>% 
-  filter(!is.na(Treatment))
+  mutate(blockID = as.character(blockID),
+         blockID = if_else(is.na(blockID), substr(turfID, 4, 4), blockID)) %>% 
+  filter(!is.na(Treatment),
+         !is.na(Date))
 
 ggplot(SM2018, aes(Treatment, SM)) + geom_boxplot() + facet_grid(precipLevel~tempLevel) + cowplot::theme_cowplot()
 
